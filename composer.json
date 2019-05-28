@@ -1,0 +1,19 @@
+{
+    "name": "celestriode/json-utils",
+    "autoload": {
+        "classmap": [
+            "src"
+        ]
+    },
+    "require": {
+        "seld/jsonlint": "^1.7"
+    },
+    "description": "Functions for interfacing with a JSON-derived object.",
+    "authors": [
+        {
+            "name": "Celestriode",
+            "homepage": "https://github.com/celestriode"
+        }
+    ],
+    "license": "MIT"
+}
