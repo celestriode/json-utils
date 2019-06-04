@@ -154,7 +154,7 @@ class Options
 
                 // Add info about successful branching.
 
-                $reports->addInfo('Branch "' . $branch->getBranchName() . '" succeeds');
+                $reports->addInfo('Successfully branched to "' . $branch->getBranchName() . '"');
                 
                 // If this branch belongs to an array, validate it differently.
 

@@ -65,11 +65,16 @@ class Structure
      */
     protected function validate(\stdClass $json, Structure\Reports $reports, self $parent = null)
     {
+        // Check the optional conditions of this structure. If it succeeds.. do nothing? TODO: maybe do something.
+
+        if (!$this->options->checkConditions($json, $this, $reports)) {
+
+            //$reports->addWarning('A condition has failed.');
+        }
+
         // If the structure is supposed to be empty, skip it.
 
         if ($this->options->isEmpty()) {
-
-            $reports->addInfo('This structure has no additional features.');
 
             return;
         }
@@ -112,13 +117,6 @@ class Structure
                 $reports->addFatal($e->getMessage());
             }
 
-        }
-
-        // Check the optional conditions of this structure. If it succeeds.. do nothing? TODO: maybe do something.
-
-        if (!$this->options->checkConditions($json, $this, $reports)) {
-
-            //$reports->addWarning('A condition has failed.');
         }
 
         // If this is a list, do list validation and don't continue.
@@ -177,7 +175,7 @@ class Structure
 
             if ($child->getOptions()->isPlaceholder() || $child->getOptions()->isEmpty()) {
 
-                $child->compare($json, null, $this);
+                $child->compare($json, $child->getOptions()->isPlaceholder() ? null : $reports, $this);
 
                 $i++;
                 continue;
@@ -315,12 +313,12 @@ class Structure
      *
      * @param string $branchName The name of the branch, used for error reporting.
      * @param self $structure The structure within this branch.
-     * @param Structure\Conditions\ICondition $condition The condition that must succeed to validate this branch.
+     * @param Structure\Conditions\ICondition ...$conditions The conditions that must succeed to validate this branch.
      * @return self
      */
-    public function addBranch(string $branchName, self $structure, Structure\Conditions\ICondition $condition): self
+    public function addBranch(string $branchName, self $structure, Structure\Conditions\ICondition ...$conditions): self
     {
-        $this->options->addBranch(new Structure\Branch($branchName, $this, $structure, $condition));
+        $this->options->addBranch(new Structure\Branch($branchName, $this, $structure, ...$conditions));
 
         return $this;
     }
