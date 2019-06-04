@@ -93,6 +93,16 @@ class Reports
     }
 
     /**
+     * Returns whether or not there are any non-fatal warnings.
+     *
+     * @return boolean
+     */
+    public function hasWarnings(): bool
+    {
+        return !empty($this->warnings);
+    }
+
+    /**
      * Returns whether or not there are errors (both fatal and non-fatal).
      *
      * @return boolean
@@ -110,6 +120,79 @@ class Reports
     public function isFatal(): bool
     {
         return !empty($this->fatals);
+    }
+
+    /**
+     * Cycles through all children and their children to determine
+     * whether there is any info at any depth.
+     *
+     * @return boolean
+     */
+    public function hasAnyInfo(): bool
+    {
+        if ($this->hasInfo()) {
+
+            return true;
+        }
+
+        for ($i = 0, $j = count($this->children); $i < $j; $i++) {
+
+            if ($this->children[$i]->hasAnyInfo()) {
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Cycles through all children and their children to determine
+     * whether there are any errors at any depth.
+     *
+     * @return boolean
+     */
+    public function hasAnyWarnings(): bool
+    {
+        if ($this->hasWarnings()) {
+
+            return true;
+        }
+
+        for ($i = 0, $j = count($this->children); $i < $j; $i++) {
+
+            if ($this->children[$i]->hasAnyWarnings()) {
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Cycles through all children and their children to determine
+     * whether there are any fatals at any depth.
+     *
+     * @return boolean
+     */
+    public function hasAnyFatals(): bool
+    {
+        if ($this->isFatal()) {
+
+            return true;
+        }
+
+        for ($i = 0, $j = count($this->children); $i < $j; $i++) {
+
+            if ($this->children[$i]->hasAnyFatals()) {
+
+                return true;
+            }
+        }
+
+        return false;
+
     }
 
     /**
