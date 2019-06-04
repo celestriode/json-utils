@@ -33,6 +33,26 @@ class Reports
     }
 
     /**
+     * Returns the expected key to be found in JSON.
+     *
+     * @return string
+     */
+    public function getKey(): string
+    {
+        return $this->key;
+    }
+
+    /**
+     * Returns the JSON stored in the report.
+     *
+     * @return \stdClass
+     */
+    public function getJson(): \stdClass
+    {
+        return $this->json;
+    }
+
+    /**
      * Adds a child report to this report.
      * 
      * This is used for depth traversal.
