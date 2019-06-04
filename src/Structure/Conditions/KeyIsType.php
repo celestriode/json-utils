@@ -40,7 +40,7 @@ class KeyIsType implements ICondition
 
         $element = $json->{$key};
 
-        $correct = $this->type & JsonUtils::normalizeTypeString(gettype($element)) !== 0;
+        $correct = ($this->type & JsonUtils::normalizeTypeString(gettype($element))) !== 0;
 
         if ($announce && !$correct) {
 
