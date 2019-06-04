@@ -6,6 +6,17 @@ use Seld\JsonLint\ParsingException;
 class JsonUtils
 {
     private const NOT_FOUND = 'Could not find expected key "%s"';
+    private const NOT_FOUND_WITH_TYPE = 'Could not find the expected key "%s" with the expected type "%s"';
+
+    const ANY = -1;
+    const INTEGER = 1;
+    const DOUBLE = 2;
+    const BOOLEAN = 4;
+    const STRING = 8;
+    const ARRAY = 16;
+    const OBJECT = 32;
+    const NUMBER = self::INTEGER | self::DOUBLE;
+    const SCALAR = self::NUMBER | self::BOOLEAN | self::STRING;
 
     /**
      * Lints and parses the raw JSON string using Seld\JsonLint.
@@ -39,6 +50,78 @@ class JsonUtils
     }
 
     /**
+     * Turns a stringified type (obtained via gettype()) into a
+     * numeric value as used by this package.
+     *
+     * @param string $type The datatype to turn into a number.
+     * @return integer
+     */
+    public static function normalizeTypeString(string $type): int
+    {
+        switch ($type) {
+            case 'boolean':
+                return self::BOOLEAN;
+            case 'integer':
+                return self::INTEGER;
+            case 'double':
+                return self::DOUBLE;
+            case 'string':
+                return self::STRING;
+            case 'array':
+                return self::ARRAY;
+            case 'object':
+                return self::OBJECT;
+            default:
+                return self::ANY;
+        }
+    }
+
+    /**
+     * Turns an integer type (obtained via normalizeTypeString) into an
+     * array of string values.
+     *
+     * @param integer $type The datatype to turn into a string.
+     * @return array
+     */
+    public static function normalizeTypeInteger(int $type): array
+    {
+        $buffer = [];
+
+        if (($type & JsonUtils::INTEGER) !== 0) {
+
+            $buffer[] = 'integer';
+        }
+
+        if (($type & JsonUtils::DOUBLE) !== 0) {
+
+            $buffer[] = 'double';
+        }
+
+        if (($type & JsonUtils::STRING) !== 0) {
+
+            $buffer[] = 'string';
+        }
+
+        if (($type & JsonUtils::BOOLEAN) !== 0) {
+
+            $buffer[] = 'boolean';
+        }
+
+        if (($type & JsonUtils::ARRAY) !== 0) {
+
+            $buffer[] = 'array';
+        }
+
+        if (($type & JsonUtils::OBJECT) !== 0) {
+
+            $buffer[] = 'object';
+        }
+
+        return $buffer;
+        return implode(', ', $buffer);
+    }
+
+    /**
      * Returns whether or not the key exists. Optionally tests the value of the key
      * against the given predicates.
      * 
@@ -59,6 +142,15 @@ class JsonUtils
             // Throw if it's supposed to.
 
             if ($throw) {
+
+                // If using packaged type predicate, use a better error message.
+
+                if (isset($predicates[0]) && $predicates[0] instanceof Predicate\TypePredicate) {
+
+                    throw new Exception\NotFound(sprintf(self::NOT_FOUND_WITH_TYPE, $key, $predicates[0]->getExpectedTypeString()));
+                }
+
+                // Otherwise just throw a regular not found message.
 
                 throw new Exception\NotFound(sprintf(self::NOT_FOUND, $key));
             }
@@ -177,6 +269,21 @@ class JsonUtils
     }
 
     /**
+     * Returns whether or not the JSON object contains a nested object with the
+     * provided key.
+     *
+     * @param string $key The key of the value.
+     * @param \stdClass $object The JSON object to look within.
+     * @return boolean
+     */
+    public static function hasObject(string $key, \stdClass $object): bool
+    {
+        $value = $object->{$key} ?? null;
+
+        return $value !== null && $object->{$key} instanceof \stdClass;
+    }
+
+    /**
      * Gets an array out of the JSON object.
      *
      * @param string $key The key of the value.
@@ -217,6 +324,45 @@ class JsonUtils
     }
 
     /**
+     * Gets a scalar value out of the JSON object.
+     *
+     * @param string $key The key of the value.
+     * @param \stdClass $object The JSON object to look within.
+     * @return string
+     */
+    public static function getScalar(string $key, \stdClass $object)
+    {
+        self::hasKey($key, $object, true, new class($key, gettype($object->{$key} ?? null), 'scalar') extends Predicate\TypePredicate {
+            public function test($value): bool {
+                return is_scalar($value);
+            }
+        });
+
+        // Return result.
+
+        return $object->{$key};
+    }
+
+    /**
+     * Returns a mixed value from key.
+     * 
+     * Predicates may be supplied.
+     *
+     * @param string $key The key of the value.
+     * @param \stdClass $object The JSON object to look within.
+     * @param Predicate\Predicate ...$predicates The predicates to test.
+     * @return void
+     */
+    public static function get(string $key, \stdClass $object, Predicate\Predicate ...$predicates)
+    {
+        self::hasKey($key, $object, true, ...$predicates);
+
+        // Return result.
+
+        return $object->{$key};
+    }
+
+    /**
      * Returns only the keys within the object.
      *
      * @param \stdClass $object The object within which to get keys from.
@@ -238,7 +384,7 @@ class JsonUtils
      */
     public static function getInvalidKeys(\stdClass $object, string ...$validKeys): array
     {
-        return array_diff(self::getKeys($object), $validKeys);
+        return array_values(array_diff(self::getKeys($object), $validKeys));
     }
 
     /**
@@ -272,5 +418,37 @@ class JsonUtils
 
             $func($keys[$i], $obj);
         }
+    }
+
+    /**
+     * Returns a string based on the type of the provided value.
+     *
+     * @param mixed $value The value to turn into a string.
+     * @return string
+     */
+    public static function toString($value): string
+    {
+        // Return if scalar.
+
+        if (is_scalar($value)) {
+
+            return (string)$value;
+        }
+
+        // Return if array.
+
+        if (is_array($value)) {
+
+            return json_encode($value);
+        }
+
+        // Return if object.
+
+        if (is_object($value)) {
+
+            return json_encode($value);
+        }
+
+        return 'unknown';
     }
 }
