@@ -235,7 +235,7 @@ class JsonUtils
      * @param \stdClass $object The JSON object to look within.
      * @return string
      */
-    public static function getDouble(string $key, \stdClass $object): float
+    public static function getDouble(string $key, \stdClass $object): double
     {
         self::hasKey($key, $object, true, new class($key, gettype($object->{$key} ?? null), 'double') extends Predicate\TypePredicate {
             public function test($value): bool {
@@ -246,6 +246,28 @@ class JsonUtils
         // Return result.
 
         return $object->{$key};
+    }
+
+    /**
+     * Gets either an integer or double out of the JSON object.
+     * 
+     * Though it will always return a double.
+     *
+     * @param string $key The key of the value.
+     * @param \stdClass $object The JSON object to look within.
+     * @return double
+     */
+    public static function getNumber(string $key, \stdClass $object): double
+    {
+        self::hasKey($key, $object, true, new class($key, gettype($object->{$key} ?? null), 'number') extends Predicate\TypePredicate {
+            public function test($value): bool {
+                return is_int($value) || is_double($value);
+            }
+        });
+
+        // Return result.
+
+        return (double)$object->{$key};
     }
 
     /**

@@ -246,6 +246,57 @@ class Reports
     }
 
     /**
+     * Returns an array containing strings of all the informational messages.
+     *
+     * @return array
+     */
+    public function getAllInfo(): array
+    {
+        $info = $this->info;
+
+        for ($i = 0, $j = count($this->children); $i < $j; $i++) {
+
+            $info = array_merge($info, $this->children[$i]->getAllInfo());
+        }
+
+        return $info;
+    }
+
+    /**
+     * Returns an array containing strings of all the warning messages.
+     *
+     * @return array
+     */
+    public function getAllWarnings(): array
+    {
+        $warnings = $this->warnings;
+
+        for ($i = 0, $j = count($this->children); $i < $j; $i++) {
+
+            $warnings = array_merge($warnings, $this->children[$i]->getAllWarnings());
+        }
+
+        return $warnings;
+    }
+
+    /**
+     * Returns an array containing strings of all the fatal error messages.
+     *
+     * @return array
+     */
+    public function getAllFatals(): array
+    {
+        $fatals = $this->fatals;
+
+        for ($i = 0, $j = count($this->children); $i < $j; $i++) {
+
+            $fatals = array_merge($fatals, $this->children[$i]->getAllFatals());
+        }
+
+        return $fatals;
+    }
+
+    /**
      * Returns all child reports.
      *
      * @return array
