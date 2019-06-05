@@ -245,7 +245,7 @@ class JsonUtils
 
         // Return result.
 
-        return $object->{$key};
+        return (double)$object->{$key};
     }
 
     /**
