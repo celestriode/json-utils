@@ -235,7 +235,7 @@ class JsonUtils
      * @param \stdClass $object The JSON object to look within.
      * @return string
      */
-    public static function getDouble(string $key, \stdClass $object): double
+    public static function getDouble(string $key, \stdClass $object): float
     {
         self::hasKey($key, $object, true, new class($key, gettype($object->{$key} ?? null), 'double') extends Predicate\TypePredicate {
             public function test($value): bool {
@@ -245,7 +245,7 @@ class JsonUtils
 
         // Return result.
 
-        return (double)$object->{$key};
+        return (float)$object->{$key};
     }
 
     /**
@@ -257,7 +257,7 @@ class JsonUtils
      * @param \stdClass $object The JSON object to look within.
      * @return double
      */
-    public static function getNumber(string $key, \stdClass $object): double
+    public static function getNumber(string $key, \stdClass $object): float
     {
         self::hasKey($key, $object, true, new class($key, gettype($object->{$key} ?? null), 'number') extends Predicate\TypePredicate {
             public function test($value): bool {
@@ -267,7 +267,7 @@ class JsonUtils
 
         // Return result.
 
-        return (double)$object->{$key};
+        return (float)$object->{$key};
     }
 
     /**
