@@ -17,7 +17,7 @@ interface ICondition
      * @param \stdClass $json The JSON at the current depth.
      * @param Structure $structure The expected structure.
      * @param Reports $reports Error reporting collection.
-     * @param bool $announce Whether or not to add errors to reports.
+     * @param boolean $announce Whether or not to add errors to reports.
      * @return void
      */
     public function validate(\stdClass $json, Structure $structure, Reports $reports, bool $announce = true): bool;

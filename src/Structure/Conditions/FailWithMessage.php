@@ -6,26 +6,34 @@ use Celestriode\JsonUtils\Structure;
 use Celestriode\JsonUtils\Structure\Reports;
 use Celestriode\JsonUtils\JsonUtils;
 
-class AtLeastOneKey implements ICondition
+class FailWithMessage implements ICondition
 {
+    private $message;
+
+    public function __construct(string $message)
+    {
+        $this->message = $message;
+    }
+
     /**
-     * Ensures that the object contains at least one key whatsoever.
-     * 
-     * Does not check if the key itself is valid.
+     * A condition that always fails and will add a fatal error
+     * to the report with the supplied message.
      *
      * @param \stdClass $json The JSON at the current depth.
      * @param Structure $structure The expected structure.
      * @param Reports $reports Error reporting collection.
      * @param boolean $announce Whether or not to add errors to reports.
-     * @return void
+     * @return boolean
      */
     public function validate(\stdClass $json, Structure $structure, Reports $reports, bool $announce = true): bool
     {
-        if ($announce && empty((array)$json)) {
+        if ($announce) {
 
-            $reports->addFatal('You must have at least one key within "' . $structure->getKey() . '"');
+            $reports->addFatal($this->message);
         }
 
-        return !empty((array)$json);
+        // Always return false for this one.
+
+        return false;
     }
 }

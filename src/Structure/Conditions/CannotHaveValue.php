@@ -6,26 +6,30 @@ use Celestriode\JsonUtils\Structure;
 use Celestriode\JsonUtils\Structure\Reports;
 use Celestriode\JsonUtils\JsonUtils;
 
-class AtLeastOneKey implements ICondition
+class CannotHaveValue extends HasValue
 {
     /**
-     * Ensures that the object contains at least one key whatsoever.
-     * 
-     * Does not check if the key itself is valid.
+     * Checks if the HasValue condition succeeds. In which case,
+     * this condition fails.
      *
      * @param \stdClass $json The JSON at the current depth.
      * @param Structure $structure The expected structure.
      * @param Reports $reports Error reporting collection.
      * @param boolean $announce Whether or not to add errors to reports.
-     * @return void
+     * @return boolean
      */
     public function validate(\stdClass $json, Structure $structure, Reports $reports, bool $announce = true): bool
     {
-        if ($announce && empty((array)$json)) {
+        if (parent::validate($json, $structure, $reports, false)) {
 
-            $reports->addFatal('You must have at least one key within "' . $structure->getKey() . '"');
+            if ($announce) {
+
+                $reports->addWarning('Value of <code>' . $structure->getKey() .  '</code> cannot be any of the following: <code>' . implode('</code>, <code>', $this->validValues) . '</code>');
+            }
+
+            return false;
         }
 
-        return !empty((array)$json);
+        return true;
     }
 }

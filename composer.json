@@ -1,9 +1,9 @@
 {
     "name": "celestriode/json-utils",
     "autoload": {
-        "classmap": [
-            "src"
-        ]
+        "psr-4": {
+            "Celestriode\\JsonUtils\\": "src"
+        }
     },
     "require": {
         "php": "^7.0",

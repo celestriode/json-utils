@@ -41,13 +41,14 @@ class HasValue implements ICondition
      * @param \stdClass $json The JSON at the current depth.
      * @param Structure $structure The expected structure.
      * @param Reports $reports Error reporting collection.
+     * @param boolean $announce Whether or not to add errors to reports.
      * @return void
      */
     public function validate(\stdClass $json, Structure $structure, Reports $reports, bool $announce = true): bool
     {
         // The JSON did not contain the structure's key in proper format, skip.
 
-        if (!JsonUtils::hasKey($structure->getKey(), $json) && !is_scalar(JsonUtils::get($structure->getKey(), $json))) {
+        if (!JsonUtils::hasKey($structure->getKey(), $json) || !is_scalar(JsonUtils::get($structure->getKey(), $json))) {
             
             return false;
         }

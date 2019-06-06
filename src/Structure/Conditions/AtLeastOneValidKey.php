@@ -11,10 +11,13 @@ class AtLeastOneValidKey implements ICondition
     /**
      * Ensures that the object contains at least one of the structure's valid
      * keys. If it contains no valid keys, an error is reported.
+     * 
+     * Valid keys are the siblings specified by the structure tree itself.
      *
      * @param \stdClass $json The JSON at the current depth.
      * @param Structure $structure The expected structure.
      * @param Reports $reports Error reporting collection.
+     * @param boolean $announce Whether or not to add errors to reports.
      * @return void
      */
     public function validate(\stdClass $json, Structure $structure, Reports $reports, bool $announce = true): bool

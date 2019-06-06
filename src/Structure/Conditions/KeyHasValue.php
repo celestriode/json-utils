@@ -19,13 +19,13 @@ class KeyHasValue implements ICondition
     }
 
     /**
-     * Ensures that the object contains at least one key whatsoever.
-     * 
-     * Does not check if the key itself is valid.
+     * Checks to ensure that the specified field has a value
+     * within the acceptable array of values.
      *
      * @param \stdClass $json The JSON at the current depth.
      * @param Structure $structure The expected structure.
      * @param Reports $reports Error reporting collection.
+     * @param boolean $announce Whether or not to add errors to reports.
      * @return void
      */
     public function validate(\stdClass $json, Structure $structure, Reports $reports, bool $announce = true): bool

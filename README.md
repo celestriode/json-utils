@@ -248,11 +248,16 @@ The report will contain a warning about how "helo" is not a valid input for that
 
 | Condition | Description
 | - | - |
-| `HasValue(string ...$values)` | Checks if the current structure's value is one of the supplied values. |
-| `KeyHasValue(string $key, string ...$values)` | Checks if the specified key, which must be a sibling of the current structure, has the specified values. This is primarily used for branching.
-| `AtLeastOneKey()` | Checks whether the object has at least 1 field with any key name. |
-| `AtLeastOneValidKey()` | Checks if the object contains at least 1 field with any valid key specified in the structure itself. |
-| `KeyIsType(int $datatype, string $key)` | Checks if the field is of a certain datatype. This is primarily used for arrays.
+| `HasValue(string ...$values)` | Succeeds if the current structure's value is one of the supplied values. |
+| `KeyHasValue(string $key, string ...$values)` | Succeeds if the specified key, which must be a sibling of the current structure, has the specified values. This is primarily used for branching.
+| `AtLeastOneKey()` | Succeeds if the object has at least 1 field with any key name. |
+| `AtLeastOneValidKey()` | Succeeds if the object contains at least 1 field with any valid key specified in the structure itself. |
+| `KeyIsType(int $datatype, string $key)` | Succeeds if the field is of the specified datatype. This is primarily used for arrays.
+| `CannotHaveValue(string ...$values)` | Fails if the current structure's value is any one of the specified values. |
+| `ExclusiveKey(bool $oneKeyRequired, string ...$keys)` | Fails if any of the specified keys co-exist as siblings in the current structure. if `$oneKeyRequired` is true, then one of the specified keys must also exist. |
+| `FailWithMessage(string $message)` | Always fails and will add a fatal warning with the supplied error message. |
+| `KeysExist(string ...$keys)` | Succeeds as long as all supplied keys exist as siblings to the current structure, regardless of their value. |
+| `WithinRange(float $min = null, float $max = null)` | Succeeds provided the current structure's value is numeric (strings included) and is between the specified min and max. If either are null, no limit. If both are null, simply returns true as long as the value is numeric (strings included).
 
 ### Custom conditions
 

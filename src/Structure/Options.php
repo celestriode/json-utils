@@ -154,7 +154,14 @@ class Options
 
                 // Add info about successful branching.
 
-                $reports->addInfo('Successfully branched to "' . $branch->getBranchName() . '"');
+                if (isset($json->{$parent->getKey()})) {
+
+                    $reports->addInfo('Successfully branched to "' . $branch->getBranchName() . '" with value "' . JsonUtils::toString($json->{$parent->getKey()}) . '"');
+                } else {
+
+                    $reports->addInfo('Successfully branched to "' . $branch->getBranchName() . '"');
+
+                }
                 
                 // If this branch belongs to an array, validate it differently.
 
