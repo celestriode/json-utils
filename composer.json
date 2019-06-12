@@ -7,8 +7,7 @@
     },
     "require": {
         "php": "^7.0",
-        "seld/jsonlint": "^1.7",
-        "myclabs/deep-copy": "^1.9"
+        "seld/jsonlint": "^1.7"
     },
     "description": "Functions for interfacing with a JSON-derived object.",
     "authors": [

@@ -1,270 +1,80 @@
 <?php namespace Celestriode\JsonUtils\Structure;
 
-use Seld\JsonLint\JsonParser;
-use Seld\JsonLint\ParsingException;
-use Celestriode\JsonUtils\Structure;
-use Celestriode\JsonUtils\JsonUtils;
-use Celestriode\JsonUtils\Predicate\MultiTypePredicate;
-
 class Options
 {
-    private $type;
-    private $required;
-    private $isPlaceholder;
-
-    protected $empty = false;
-
-    protected $conditions = [];
-    protected $branches = [];
+    protected $expectedType = false;
+    protected $required = true;
+    protected $placeholder = false;
+    protected $branches = false;
+    protected $usesAncestor = false;
+    protected $ancestor;
 
     /**
-     * Creates some options for the structure.
-     * 
-     * Specifies the datatype of the structure. When not set to ANY, it will error
-     * when the datatype does not match. THIS IS A BITFIELD; e.g. use INT | DOUBLE if
-     * it can be either.
-     * 
-     * Specifies whether or not the structure is required.
+     * Sets the expected datatype when matching against Json.
      *
-     * @param integer $type The datatype of the structure.
-     * @param boolean $required Whether or not the structure must exist within its parent.
-     * @param boolean $placeholder Whether or not the structure's key can be anything at all.
+     * @param integer $expectedType The expected type.
+     * @return void
      */
-    public function __construct(int $type = JsonUtils::ANY, bool $required = true, bool $isPlaceholder = false)
+    public function setExpectedType(int $expectedType): void
     {
-        $this->type = $type;
-        $this->required = $required;
-        $this->isPlaceholder = $isPlaceholder;
+        $this->expectedType = $expectedType;
     }
 
     /**
-     * Sets the datatype of the structure in numerical format.
-     * 
-     * Use JsonUtils::<TYPE> for the correct numbers.
+     * Sets whether or not this structure must exist within the input.
      *
-     * @param integer $type T
-     * @return self
+     * @param boolean $required
+     * @return void
      */
-    public function setType(int $type): self
-    {
-        $this->type = $type;
-
-        return $this;
-    }
-
-    /**
-     * Marks the structure as being required.
-     *
-     * @param boolean $required True if required.
-     * @return self
-     */
-    public function setRequired(bool $required): self
+    public function setRequired(bool $required): void
     {
         $this->required = $required;
-
-        return $this;
     }
 
     /**
-     * Marks the structure as being a placeholder, in which the key can be anything
-     * for this particular structure.
+     * Sets whether or not the structure's key can match any key in the input.
      *
-     * @param boolean $isPlaceholder True if placeholder.
-     * @return self
-     */
-    public function setIsPlaceholder(bool $isPlaceholder): self
-    {
-        $this->isPlaceholder = $isPlaceholder;
-
-        return $this;
-    }
-
-    /**
-     * Marks the structure as being empty and thus should not be validated at all.
-     *
-     * @param boolean $empty True if empty.
-     * @return self
-     */
-    public function setEmpty(bool $empty): self
-    {
-        $this->empty = $empty;
-
-        return $this;
-    }
-
-    /**
-     * Adds a condition to the structure.
-     *
-     * @param Conditions\ICondition $condition The condition to add.
-     * @return self
-     */
-    public function addCondition(Conditions\ICondition $condition): self
-    {
-        $this->conditions[] = $condition;
-
-        return $this;
-    }
-
-    /**
-     * Runs the stored conditions to handle custom errors.
-     * 
-     * Returns false if any one condition fails.
-     *
-     * @param \stdClass $json The JSON at the current depth.
-     * @param Structure $structure The structure at the current depth.
-     * @param Reports $reports Reports to add to.
-     * @return bool
-     */
-    public function checkConditions(\stdClass $json, Structure $structure, Reports $reports): bool
-    {
-        $success = true;
-
-        for ($i = 0, $j = count($this->conditions); $i < $j; $i++) {
-
-            $condition = $this->conditions[$i];
-
-            if (!$condition->validate($json, $structure, $reports)) {
-
-                $success = false;
-            }
-        }
-
-        return $success;
-    }
-
-    /**
-     * Cycles through each branch and validates them provided their condition succeeds.
-     *
-     * @param \stdClass $json The JSON at the current depth.
-     * @param Structure $parent The parent structure to pass on to the branch.
-     * @param Reports $reports Reports to add to.
+     * @param boolean $placeholder True if the input's key can be anything.
      * @return void
      */
-    public function validateBranches(\stdClass $json, Structure $parent, Reports $reports): bool
+    public function setPlaceholder(bool $placeholder): void
     {
-        $succeeds = false;
-
-        foreach ($this->branches as $name => $branch) {
-
-            // If the branch's conditions succeed...
-
-            if ($branch->succeeds($json, $reports)) {
-
-                $succeeds = true;
-
-                // Add info about successful branching.
-
-                if (isset($json->{$parent->getKey()})) {
-
-                    $reports->addInfo('Successfully branched to "' . $branch->getBranchName() . '" with value "' . JsonUtils::toString($json->{$parent->getKey()}) . '"');
-                } else {
-
-                    $reports->addInfo('Successfully branched to "' . $branch->getBranchName() . '"');
-
-                }
-                
-                // If this branch belongs to an array, validate it differently.
-
-                if ($parent->getOptions()->isType(JsonUtils::ARRAY)) {
-
-                    // Create a buffer structure to fix the data structures for automatic validation.
-
-                    $bufferStructure = Structure::root(
-                        $branch->getStructure()
-                    );
-                    $bufferJson = new \stdClass();
-                    $bufferJson->{$branch->getStructure()->getKey()} = $json->{$parent->getKey()};
-
-                    // Validate the buffer structure.
-
-                    $bufferStructure->compare($bufferJson, $reports, $parent);
-                } else {
-
-                    // Add the structure of the branch to the parent for deferred validation.
-
-                    $parent->addChild($branch->getStructure());
-                }
-            }
-        }
-
-        // Return whether or not any branch succeeded.
-
-        return $succeeds;
+        $this->placeholder = $placeholder;
     }
 
     /**
-     * Validates whether or not the structure contains a key with the expected type.
-     * 
-     * Handles error reporting itself and does not return anything.
+     * Whether or not this structure's key can match any key in the input.
      *
-     * @param \stdClass $json The JSON at the current depth.
-     * @param Structure $structure The structure at the current depth.
-     * @param Reports $reports Reports to add to.
-     * @return void
-     */
-    public function validateType(\stdClass $json, string $key, Reports $reports): void
-    {
-        // Skip if there's no key to find or if type is intended to be any.
-
-        if (!JsonUtils::hasKey($key, $json) || $this->type === JsonUtils::ANY) {
-
-            return;
-        }
-
-        // Get the key itself, let JsonUtils handle the error throwing.
-
-        JsonUtils::get($key, $json, new MultiTypePredicate($key, gettype($json->{$key} ?? null), $this->type));
-    }
-
-    /**
-     * Adds multiple branches.
-     *
-     * @param Branch ...$branches The branches to add.
-     * @return void
-     */
-    public function addBranches(Branch ...$branches): void
-    {
-        for ($i = 0, $j = count($branches); $i < $j; $i++) {
-
-            $this->addBranch($branches[$i]);
-        }
-    }
-
-    /**
-     * Adds a single branch.
-     *
-     * @param Branch $branch The branch to add.
-     * @return void
-     */
-    public function addBranch(Branch $branch): void
-    {
-        $this->branches[$branch->getBranchName()] = $branch;
-    }
-
-    /**
-     * Returns the expected datatype (bitfield).
-     *
-     * @return integer
-     */
-    public function getType(): int
-    {
-        return $this->type;
-    }
-
-    /**
-     * Checks whether or not the input type is within the bitfield of
-     * expected types of this structure.
-     *
-     * @param integer $type The type to compare with.
      * @return boolean
      */
-    public function isType(int $type): bool
+    public function isPlaceholder(): bool
     {
-        return ($this->type & $type) !== 0;
+        return $this->placeholder;
     }
 
     /**
-     * Returns whether or not this structure is required.
+     * Marks the structure as being a branch.
+     *
+     * @param boolean $branches True if it branches.
+     * @return void
+     */
+    public function setBranches(bool $branches): void
+    {
+        $this->branches = $branches;
+    }
+
+    /**
+     * Returns whether or not this structure branches elsewhere based on predicates.
+     *
+     * @return boolean
+     */
+    public function branches(): bool
+    {
+        return $this->branches;
+    }
+
+    /**
+     * Returns whether or not the structure must exist within the input.
      *
      * @return boolean
      */
@@ -274,23 +84,57 @@ class Options
     }
 
     /**
-     * Returns whether or not the key should be ignored in favor of
-     * accepting all keynames within the current object.
+     * Sets the ancestor key for the structure.
      *
-     * @return boolean
+     * @param string $ancestor The key of the ancestor to locate.
+     * @param boolean $uses Whether or not it actually uses an ancestor.
+     * @return void
      */
-    public function isPlaceholder(): bool
+    public function setAncestor(string $ancestor = null, bool $uses = true): void
     {
-        return $this->isPlaceholder;
+        $this->ancestor = $ancestor;
+        $this->usesAncestor = $uses;
     }
 
     /**
-     * Returns whether or not this structure is empty.
+     * Returns whether or not this structure makes use of an ancestor.
      *
      * @return boolean
      */
-    public function isEmpty(): bool
+    public function usesAncestor(): bool
     {
-        return $this->empty;
+        return $this->usesAncestor;
+    }
+
+    /**
+     * Returns the key of the ancestor, if existent.
+     *
+     * @return string|null
+     */
+    public function getAncestor(): ?string
+    {
+        return $this->ancestor;
+    }
+
+    /**
+     * Returns the expected datatype that the Json should have.
+     *
+     * @return integer
+     */
+    public function getExpectedType(): int
+    {
+        return $this->expectedType;
+    }
+
+    /**
+     * Returns whether or not the expected datatype of this structure
+     * matches the specified datatype.
+     *
+     * @param integer $type The datatype to check if valid.
+     * @return boolean
+     */
+    public function isExpectedType(int $type): bool
+    {
+        return ($this->getExpectedType() & $type) !== 0;
     }
 }

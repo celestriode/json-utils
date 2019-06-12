@@ -1,3 +1,5 @@
+**Readme for v1.4.0**
+
 # celestriode/json-utils
 
 Provides a handful of utilities for simple interfacing with a JSON-derived object.

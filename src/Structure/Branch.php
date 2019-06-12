@@ -1,113 +1,83 @@
 <?php namespace Celestriode\JsonUtils\Structure;
 
-use Seld\JsonLint\JsonParser;
-use Seld\JsonLint\ParsingException;
 use Celestriode\JsonUtils\Structure;
-use Celestriode\JsonUtils\Structure\Conditions\ICondition;
-use Celestriode\JsonUtils\Structure\Reports;
-use Celestriode\JsonUtils\JsonUtils;
+use Celestriode\JsonUtils\IPredicate;
+use Celestriode\JsonUtils\Json;
 
 class Branch
 {
-    private $branchName;
-    private $parent;
-    private $structure;
-    private $conditions = [];
+    protected $label;
+    protected $structure;
+    protected $predicates = [];
+
+    public function __construct(string $label, Structure $structure, IPredicate ...$predicates)
+    {
+        $this->setLabel($label);
+        $this->setStructure($structure);
+        $this->addPredicates(...$predicates);
+    }
 
     /**
-     * A branch will be traveled only when the provided condition is true.
+     * Sets the label of the branch for user-friendly errors.
      *
-     * @param string $branchName The custom name of the branch (not a key), used for error messages.
-     * @param Structure $structure The structure to branch to if the condition succeeds.
-     * @param \closure ...$conditions The conditions to check.
+     * @param string $label The label of the branch.
+     * @return void
      */
-    public function __construct(string $branchName, Structure $parent, Structure $structure, ICondition ...$conditions)
+    public function setLabel(string $label): void
     {
-        $this->branchName = $branchName;
-        $this->parent = $parent;
+        $this->label = $label;
+    }
+
+    /**
+     * Sets the structure to use should this branch succeed.
+     *
+     * @param Structure $structure The structure of the branch.
+     * @return void
+     */
+    public function setStructure(Structure $structure): void
+    {
         $this->structure = $structure;
-        $this->addConditions(...$conditions);
     }
 
     /**
-     * Adds multiple conditions to the branch.
-     * 
-     * TODO: use a trait?
+     * Adds multiple predicates that all must succeed in order
+     * to use this branch's structure.
      *
-     * @param ICondition ...$conditions
+     * @param IPredicate ...$predicates The predicates that must succeed.
      * @return void
      */
-    public function addConditions(ICondition ...$conditions): void
+    public function addPredicates(IPredicate ...$predicates): void
     {
-        for ($i = 0, $j = count($conditions); $i < $j; $i++) {
+        for ($i = 0, $j = count($predicates); $i < $j; $i++) {
 
-            $this->addCondition($conditions[$i]);
+            $this->addPredicate($predicates[$i]);
         }
     }
 
     /**
-     * Adds a single condition to the branch.
-     * 
-     * TODO: use a trait?
+     * Adds a single predicate that must succeed in order to
+     * use this branch's structure.
      *
-     * @param ICondition $condition
+     * @param IPredicate $predicate
      * @return void
      */
-    public function addCondition(ICondition $condition): void
+    public function addPredicate(IPredicate $predicate): void
     {
-        $this->conditions[] = $condition;
+        $this->predicates[] = $predicate;
     }
 
     /**
-     * Checks whether or not the branch is accessible using the provided input.
+     * Returns the user-friendly label of this branch.
      *
-     * @param \stdClass $json The JSON input to check.
-     * @param Reports $reports Error-reporting collection.
-     * @return boolean
+     * @return string
      */
-    public function succeeds(\stdClass $json, Reports $reports): bool
+    public function getLabel(): string
     {
-        // If the parent is an array, validate it itself.
-
-        if ($this->parent->getOptions()->isType(JsonUtils::ARRAY)) {
-
-            return $this->validateConditions($json, $reports, $this->parent);
-        }
-        
-        // Otherwise just validate the branch's structure.
-
-        return $this->validateConditions($json, $reports, $this->structure);
+        return $this->label;
     }
 
     /**
-     * Checks all the conditions of the branch to ensure they pass.
-     *
-     * @param \stdClass $json The JSON input to check against the conditions.
-     * @param Reports $reports Error-reporting collection.
-     * @param Structure $structure The structure to validate with.
-     * @return boolean
-     */
-    private function validateConditions(\stdClass $json, Reports $reports, Structure $structure): bool
-    {
-        $succeeds = true;
-
-        // Cycle through each one and collect the necessary reports from all conditions before returning failure.
-
-        for ($i = 0, $j = count($this->conditions); $i < $j; $i++) {
-
-            if (!$this->conditions[$i]->validate($json, $structure, $reports, false)) {
-
-                $succeeds = false;
-            }
-        }
-
-        // Return whether or not every single condition succeeded.
-
-        return $succeeds;
-    }
-
-    /**
-     * Returns the structure that this branch validates JSON with.
+     * Returns the structure that this branch uses.
      *
      * @return Structure
      */
@@ -117,32 +87,40 @@ class Branch
     }
 
     /**
-     * Returns the parent structure of this branch.
-     *
-     * @return Structure
-     */
-    public function getParent(): Structure
-    {
-        return $this->parent;
-    }
-
-    /**
-     * Returns the custom name of this branch.
-     *
-     * @return string
-     */
-    public function getBranchName(): string
-    {
-        return $this->branchName;
-    }
-
-    /**
-     * Returns all conditions of the branch.
+     * Returns all the predicates of this branch.
      *
      * @return array
      */
-    public function getConditions(): array
+    public function getPredicates(): array
     {
-        return $this->conditions;
+        return $this->predicates;
+    }
+
+    /**
+     * Checks if all the predicates succeed based on the incoming Json.
+     *
+     * @param Json $json The Json to check predicates against.
+     * @return boolean
+     */
+    public function test(Json $json): bool
+    {
+        $succeeds = true;
+
+        // Cycle through all predicates.
+
+        for ($i = 0, $j = count($this->getPredicates()); $i < $j; $i++) {
+
+            // Test the predicate. If it fails, don't bother checking the rest.
+
+            if (!$this->getPredicates()[$i]->test($json)) {
+
+                $succeeds = false;
+                break;
+            }
+        }
+
+        // Return whether or not all predicates succeeded.
+
+        return $succeeds;
     }
 }

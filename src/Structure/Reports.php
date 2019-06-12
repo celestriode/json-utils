@@ -1,7 +1,6 @@
 <?php namespace Celestriode\JsonUtils\Structure;
 
-use Seld\JsonLint\JsonParser;
-use Seld\JsonLint\ParsingException;
+use Celestriode\JsonUtils\Json;
 
 class Reports
 {
@@ -24,9 +23,9 @@ class Reports
      * Fatals are typically for keys.
      *
      * @param string $key
-     * @param \stdClass $json
+     * @param Json $json
      */
-    public function __construct(string $key, \stdClass $json)
+    public function __construct(Json $json, string $key = null)
     {
         $this->key = $key;
         $this->json = $json;
@@ -35,9 +34,9 @@ class Reports
     /**
      * Returns the expected key to be found in JSON.
      *
-     * @return string
+     * @return string|null
      */
-    public function getKey(): string
+    public function getKey(): ?string
     {
         return $this->key;
     }
@@ -45,9 +44,9 @@ class Reports
     /**
      * Returns the JSON stored in the report.
      *
-     * @return \stdClass
+     * @return Json
      */
-    public function getJson(): \stdClass
+    public function getJson(): Json
     {
         return $this->json;
     }

@@ -1,250 +1,73 @@
 <?php namespace Celestriode\JsonUtils;
 
-use Seld\JsonLint\JsonParser;
-use Seld\JsonLint\ParsingException;
 use Celestriode\JsonUtils\Structure\Options;
-use function DeepCopy\deep_copy;
+use Celestriode\JsonUtils\Structure\OptionsBuilder;
+use Celestriode\JsonUtils\Structure\Reports;
+use Celestriode\JsonUtils\Structure\Branch;
 
 class Structure
 {
     protected $key;
     protected $options;
     protected $children = [];
-    protected $validKeys = [];
+    protected $elements = [];
 
-    private $originalKey;
-    private $originalOptions = [];
-    private $originalChildren = [];
+    protected $audits = [];
+    protected $branch;
 
-    /**
-     * Stores the expected structure along with various options
-     * as well as child structures (provided that this structure
-     * is an object or array)
-     *
-     * @param string $key The name of the key.
-     * @param Options $options The various options of this structure.
-     * @param self ...$children The children of the structure.
-     */
-    public function __construct(string $key, Options $options = null, self ...$children)
+    protected $parent;
+
+    public function __construct(string $key = null, Options $options = null, self ...$children)
     {
-        $this->key = $this->originalKey = $key;
-        $this->options = $options ?? new Options();
-        $this->originalOptions = deep_copy($this->options);
+        $this->setKey($key);
+        $this->setOptions($options ?? new Options());
         $this->addChildren(...$children);
-        $this->originalChildren = $children;
     }
 
     /**
-     * Initiates comparison between the preset structure and the incoming jSON object.
-     * 
-     * Issues are added to $reports, which is returned after completion.
+     * Sets the key of this field, where applicable.
      *
-     * @param \stdClass $json The JSON to compare with.
-     * @param Structure\Reports $reports Reports to add to.
-     * @param self $parent The parent of the structure, if applicable.
-     * @return Structure\Reports
-     */
-    public function compare(\stdClass $json, Structure\Reports $reports = null, self $parent = null): Structure\Reports
-    {
-        $reports = $reports ?? new Structure\Reports($this->key, $json);
-
-        $this->validate($json, $reports, $parent);
-
-        return $reports;
-    }
-
-    /**
-     * Compares the expected structure to the incoming JSON object.
-     * 
-     * Adds issues with the structure to $reports and returns said reports.
-     *
-     * @param \stdClass $json The JSON to compare with.
-     * @param Structure\Reports $reports Reports to add to.
-     * @param self $parent The parent of the structure, if applicable.
+     * @param string $key The key of the field.
      * @return void
      */
-    protected function validate(\stdClass $json, Structure\Reports $reports, self $parent = null)
+    public function setKey(string $key = null): self
     {
-        // Check the optional conditions of this structure. If it succeeds.. do nothing? TODO: maybe do something.
+        $this->key = $key;
 
-        if (!$this->options->checkConditions($json, $this, $reports)) {
-
-            //$reports->addWarning('A condition has failed.');
-        }
-
-        // If the structure is supposed to be empty, skip it.
-
-        if ($this->options->isEmpty()) {
-
-            return;
-        }
-
-        // If the structure is a placeholder, populate the parent and skip the rest of this.
-
-        if ($this->options->isPlaceholder()) {
-
-            // Get all the keys at the placeholder's depth.
-
-            $keys = JsonUtils::getKeys($json);
-
-            // Add all children from JSON in place of the placeholder. TODO: ignore if parent has a child with that key already to allow semi-dynamic content.
-            // TODO: allow the root to be lenient.
-
-            for ($i = 0, $j = count($keys); $i < $j; $i++) {
-
-                $newChild = clone $this;
-                $newChild->setKey($keys[$i]);
-                $newChild->getOptions()->setIsPlaceholder(false);
-
-                if ($parent !== null) {
-
-                    $parent->addChild($newChild);
-                }
-            }
-
-            // Don't validate a placeholder.
-
-            return;
-        } else if ($parent !== null) {
-
-            // Validate datatype.
-
-            try {
-
-                $this->getOptions()->validateType($json, $this->getKey(), $reports);
-            } catch (Exception\JsonException $e) {
-
-                $reports->addFatal($e->getMessage());
-            }
-
-        }
-
-        // If this is a list, do list validation and don't continue.
-
-        if ($this->options->isType(JsonUtils::ARRAY)) {
-
-            try {
-
-                /// Get the array silently.
-
-                $array = JsonUtils::getArray($this->getKey(), $json);
-            } catch (Exception\JsonException $e) {
-
-                return;
-            }
-            
-            // Cycle through each element in the incoming array.
-            
-            for ($i = 0, $j = count($array); $i < $j; $i++) {
-
-                // Get the current element.
-
-                $element = $array[$i];
-                $buffer = new \stdClass();
-                $buffer->{$this->getKey()} = $element;
-
-                if (!$this->options->validateBranches($buffer, $this, $reports)) {
-
-                    $reports->addWarning('Invalid list element "' . JsonUtils::toString($element) . '"');
-                }
-            }
-
-            return;
-        }
-
-        // Add any valid branches as children to this structure.
-
-        $this->options->validateBranches($json, $this, $reports);
-
-        // Check the children of this structure.
-
-        $i = 0; // Maximum number of children. TODO: lift limit?
-
-        while ($i < 256) { // TODO: refactor because this is just awful.
-
-            // If there are no more children available, all done.
-
-            if (!isset($this->children[$i])) {
-
-                break;
-            }
-
-            $child = $this->children[$i];
-
-            // If the child is a placeholder, do its partial validation to populate children and continue.
-
-            if ($child->getOptions()->isPlaceholder() || $child->getOptions()->isEmpty()) {
-
-                $child->compare($json, $child->getOptions()->isPlaceholder() ? null : $reports, $this);
-
-                $i++;
-                continue;
-            }
-
-            // If the child was required but didn't exist, error and don't evaluate what doesn't exist.
-
-            if (!JsonUtils::hasKey($child->getKey(), $json)) {
-
-                if ($child->getOptions()->isRequired()) {
-
-                    $reports->addFatal('Missing required key "' . $child->getKey() . '"');
-                }
-
-                $i++;
-                continue;
-            }
-
-            // If the expected datatype is an object, attempt to get that object.
-
-            if ($child->getOptions()->getType() === JsonUtils::OBJECT || ($child->getOptions()->getType() === JsonUtils::ANY && JsonUtils::hasObject($child->getKey(), $json))) {
-
-                try {
-                    $child->compare(JsonUtils::getObject($child->getKey(), $json), $reports->addChildReport(new Structure\Reports($child->getKey(), JsonUtils::getObject($child->getKey(), $json))), $this);
-                } catch (Exception\JsonException $e) {
-
-                    $reports->addFatal($e->getMessage());
-                }
-            } else {
-
-                // Otherwise validate the non-object.
-
-                $child->compare($json, $reports->addChildReport(new Structure\Reports($child->getKey(), $json)), $this);
-            }
-
-            $i++;
-        }
-
-        // If this is an object, check for invalid keys.
-
-        if ($this->options->getType() === JsonUtils::OBJECT) {
-
-            $invalidKeys = JsonUtils::getInvalidKeys($json, ...$this->validKeys);
-
-            for ($i = 0, $j = count($invalidKeys); $i < $j; $i++) {
-
-                $reports->addWarning('Unexpected key "' . $invalidKeys[$i] . '"; check for typos');
-            }
-        }
-
-        // Reset unplanned data.
-
-        $this->removeUnplannedData();
+        return $this;
     }
 
     /**
-     * Resets data to their original form after validation.
-     * 
-     * TODO: not need to do this, this is just lazy programming.
+     * Returns the key of this structure.
      *
+     * @return string|null
+     */
+    public function getKey(): ?string
+    {
+        return $this->key;
+    }
+
+    /**
+     * Sets the custom options of this structure.
+     *
+     * @param Options $options The options of the structure.
      * @return void
      */
-    private function removeUnplannedData(): void
+    public function setOptions(Options $options): self
     {
-        $this->children = [];
-        $this->validKeys = [];
-        $this->setKey($this->originalKey);
-        $this->options = deep_copy($this->originalOptions);
-        $this->addChildren(...$this->originalChildren);
+        $this->options = $options;
+
+        return $this;
+    }
+
+    /**
+     * Returns the custom options of this structure.
+     *
+     * @return Options
+     */
+    public function getOptions(): Options
+    {
+        return $this->options;
     }
 
     /**
@@ -253,291 +76,662 @@ class Structure
      * @param self ...$children The children to add.
      * @return void
      */
-    public function addChildren(self ...$children): void
+    public function addChildren(self ...$children): self
     {
         for ($i = 0, $j = count($children); $i < $j; $i++) {
 
             $this->addChild($children[$i]);
         }
+
+        return $this;
     }
 
     /**
-     * Adds a single child to the structure.
+     * Adds a child to the structure.
      *
      * @param self $child The child to add.
      * @return void
      */
-    public function addChild(self $child): void
+    public function addChild(self $child): self
     {
-        // Do not add child if it already exists.
+        // Throw if the structure isn't an object.
 
-        if (in_array($child->getKey(), $this->validKeys)) {
+        if (!$this->getOptions()->isExpectedType(Json::OBJECT)) {
 
-            return;
+            throw new Exception\BadStructure('Cannot add children to non-object structures');
         }
 
         // Otherwise add the child.
 
-        $this->children[] = deep_copy($child);
-
-        // If the child isn't a placeholder, add its key to the list of valid keys.
-
-        if (!$child->getOptions()->isPlaceholder()) {
-
-            $this->addValidKey($child->getKey());
-        }
-    }
-
-    /**
-     * Adds a single condition to the structure.
-     * 
-     * The condition will not prohibit children from being validated. Instead,
-     * the condition is used for additional custom error reporting.
-     * 
-     * If you need to prohibit children from being validated based on a condition,
-     * use a branch instead of children.
-     *
-     * @param Conditions\ICondition $condition The condition that will be checked.
-     * @return self
-     */
-    public function addCondition(Structure\Conditions\ICondition $condition): self
-    {
-        $this->options->addCondition($condition);
+        $this->children[] = $child;
+        $child->setParent($this);
 
         return $this;
     }
 
     /**
-     * Adds a branch that will only be validated provided that the condition
-     * succeeds.
+     * Adds multiple elements to the structure.
      *
-     * @param string $branchName The name of the branch, used for error reporting.
-     * @param self $structure The structure within this branch.
-     * @param Structure\Conditions\ICondition ...$conditions The conditions that must succeed to validate this branch.
-     * @return self
+     * @param self ...$elements The elements to add.
+     * @return void
      */
-    public function addBranch(string $branchName, self $structure, Structure\Conditions\ICondition ...$conditions): self
+    public function addElements(self ...$elements): self
     {
-        $this->options->addBranch(new Structure\Branch($branchName, $this, $structure, ...$conditions));
+        for ($i = 0, $j = count($elements); $i < $j; $i++) {
+
+            $this->addElement($elements[$i]);
+        }
 
         return $this;
     }
 
     /**
-     * Adds multiple keys to the list of valid keys within
-     * this structure.
+     * Adds an element to the structure.
      *
-     * @param string ...$keys The keys to add.
+     * @param self $element The element to add.
      * @return void
      */
-    public function addValidKeys(string ...$keys): void
+    public function addElement(self $element): self
     {
-        for ($i = 0, $j = count($keys); $i < $j; $i++) {
+        // Throw if the structure isn't an array.
 
-            $this->addValidKey($keys[$i]);
+        if (!$this->getOptions()->isExpectedType(Json::ARRAY)) {
+
+            throw new Exception\BadStructure('Cannot add children to non-object structures');
         }
+
+        // Otherwise add the element.
+
+        $this->elements[] = $element;
+        $element->setParent($this);
+
+        return $this;
     }
 
     /**
-     * Adds a key that can be contained within this structure.
-     * This is used for error-reporting purposes. If there are
-     * keys in the JSON input that are not within the list of
-     * valid keys, they will be reported on.
+     * Sets the parent structure of this structure.
      *
-     * @param string $key The key to add.
-     * @return void
+     * @param self $parent The parent of the structure.
+     * @return self
      */
-    public function addValidKey(string $key): void
+    public function setParent(self $parent): self
     {
-        $this->validKeys[] = $key;
+        $this->parent = $parent;
+
+        return $this;
     }
 
     /**
-     * Sets the expected key name of this structure.
+     * Returns the parent of the structure, which implies that the
+     * parent is an object or an array. Null if no parent (which
+     * typically means it's the root).
      *
-     * @param string $key The key to set.
-     * @return void
+     * @return self|null
      */
-    final public function setKey(string $key): void
+    public function getParent(): ?self
     {
-        $this->key = $key;
+        return $this->parent;
     }
 
     /**
-     * Returns all valid keys that can be contained within this structure.
+     * Returns all the children of this structure.
      *
      * @return array
      */
-    final public function getValidKeys(): array
-    {
-        return $this->validKeys;
-    }
-
-    /**
-     * Returns all children of this structure.
-     *
-     * @return array
-     */
-    final public function getChildren(): array
+    public function getChildren(): array
     {
         return $this->children;
     }
 
     /**
-     * Returns the structure's options.
+     * Returns all the elements of this structure.
      *
-     * @return Options
+     * @return array
      */
-    final public function getOptions(): Options
+    public function getElements(): array
     {
-        return $this->options;
+        return $this->elements;
     }
 
     /**
-     * Returns the key of the structure.
+     * Adds an audit to the structure.
+     * 
+     * Use audits to validate the values incoming Json.
+     * 
+     * Predicates may be added to prevent an audit from occurring without first
+     * passing certain tests.
      *
-     * @return string
-     */
-    final public function getKey(): string
-    {
-        return $this->key;
-    }
-
-    /**
-     * Creates a structure intended to be the root of the JSON structure.
-     *
-     * @param string $key The key of the structure.
-     * @param boolean $required Whether or not this structure is required.
-     * @param self ...$children The structures nested within this structure.
+     * @param IAudit $audit The audit to add.
+     * @param IPredicate ...$predicates The predicates that must succeed before auditing can be done.
      * @return self
      */
-    public static function root(self ...$children): self
+    public function addAudit(IAudit $audit, IPredicate ...$predicates): self
     {
-        return new Structure('ROOT', new Options(JsonUtils::OBJECT), ...$children);
+        $this->audits[] = [
+            'audit' => $audit,
+            'predicates' => $predicates
+        ];
+
+        return $this;
     }
 
     /**
-     * Creates a structure that can match any key but must match the expected type.
+     * Sets the structure's branch.
      *
-     * @param string $key The key of the structure.
-     * @param boolean $required Whether or not this structure is required.
-     * @param self ...$children The structures nested within this structure.
+     * @param Branch $branch The branch to traverse if possible.
      * @return self
      */
-    public static function placeholder(int $type = JsonUtils::ANY, bool $required = true, self ...$children): self
+    public function setBranch(Branch $branch): self
     {
-        return new Structure('PLACEHOLDER', new Options($type, $required, true), ...$children);
+        $this->branch = $branch;
+        $branch->getStructure()->setParent($this);
+
+        return $this;
     }
 
     /**
-     * Creates a structure that is can contain nothing at all.
+     * Returns the branch of the structure.
      *
-     * @return self
+     * @return Branch
      */
-    public static function empty(): self
+    public function getBranch(): ?Branch
     {
-        $options = new Options();
-        $options->setEmpty(true);
-
-        return new Structure('EMPTY', $options);
+        return $this->branch;
     }
 
     /**
-     * Creates a typeless structure.
+     * Compares incoming Json with the structure to determine validity.
+     * 
+     * If a Reports object is not supplied, a new one is created.
      *
-     * @param string $key The key of the structure.
-     * @param boolean $required Whether or not this structure is required.
-     * @return self
+     * @param Json $json The incoming Json to compare with the structure.
+     * @param Reports $reports Reports to add to.
+     * @return Reports
      */
-    public static function any(string $key, bool $required = true): self
+    public function compare(Json $json, Reports $reports = null): Reports
     {
-        return new Structure($key);
+        $reports = $reports ?? new Reports($json, $this->getKey());
+
+        $this->checkStructure($json, $reports);
+
+        return $reports;
     }
 
     /**
-     * Creates a boolean structure.
+     * Goes through the structure and determines its validity.
+     * 
+     * If there are any issues or information that should be
+     * conveyed, it will do so via the supplied reports.
      *
-     * @param string $key The key of the structure.
-     * @param boolean $required Whether or not this structure is required.
-     * @return self
+     * @param Json $json The incoming Json to compare with the structure.
+     * @param Reports $reports Reports to add to.
+     * @return void
      */
-    public static function boolean(string $key, bool $required = true): self
+    protected function checkStructure(Json $json, Reports $reports): void
     {
-        return new Structure($key, new Options(JsonUtils::BOOLEAN, $required));
-    }
+        // Check if it uses an ancestor.
 
-    /**
-     * Creates an integer structure.
-     *
-     * @param string $key The key of the structure.
-     * @param boolean $required Whether or not this structure is required.
-     * @return self
-     */
-    public static function integer(string $key, bool $required = true): self
-    {
-        return new Structure($key, new Options(JsonUtils::INTEGER, $required));
-    }
+        if ($this->getOptions()->usesAncestor()) {
 
-    /**
-     * Creates a double structure.
-     *
-     * @param string $key The key of the structure.
-     * @param boolean $required Whether or not this structure is required.
-     * @return self
-     */
-    public static function double(string $key, bool $required = true): self
-    {
-        return new Structure($key, new Options(JsonUtils::DOUBLE, $required));
-    }
+            $ancestor = clone $this->findAncestor($this->getOptions()->getAncestor());
 
-    /**
-     * Creates a number (integer + double) structure.
-     *
-     * @param string $key The key of the structure.
-     * @param boolean $required Whether or not this structure is required.
-     * @return self
-     */
-    public static function number(string $key, bool $required = true): self
-    {
-        return new Structure($key, new Options(JsonUtils::NUMBER, $required));
-    }
+            // Set the ancestor's key to the current structure's key to prevent "invalid key" issue.
+
+            $ancestor->setKey($this->getKey());
+
+            // Compare and do not continue validating this structure.
+
+            $ancestor->compare($json, $reports->addChildReport(new Reports($json, $this->getKey())));
+            return;
+        }
+
+        // Verify keys. This should never actually happen.
+
+        if ($this->getKey() !== $json->getKey()) {
+
+            $reports->addFatal('Key "' . $json->getKey() . '" does not match expected key "' . $this->getKey());
+        }
+
+        // Verify datatype.
+
+        if (!$this->getOptions()->isExpectedType($json->getType())) {
+
+            $needs = implode(', ', JsonUtils::normalizeTypeInteger($this->getOptions()->getExpectedType()));
+            $has = implode(', ', JsonUtils::normalizeTypeInteger($json->getType()));
+
+            if ($this->getKey() !== null) {
+
+                $reports->addFatal('Incorrect datatype for field "' . $this->getKey() . '" with value <code>' . $json->toString() . '</code> (expected "' . $needs . '", was "' . $has . '")');
+            } else {
+
+                $reports->addFatal('Incorrect datatype for value <code>' . $json->tojsonString() . '</code> (expected "' . $needs . '", was "' . $has . '")');
+            }
+        }
+
+        // If this structure is an object...
+
+        if ($this->getOptions()->isExpectedType(Json::OBJECT) && $json->isType(Json::OBJECT)) {
+
+            // Validate each of its children.
+
+            $validKeys = [];
+
+            foreach ($this->getChildren() as $child) {
+
+                try {
+
+                    // If the child branches, do that and skip the rest.
+
+                    if ($child->getOptions()->branches()) {
+
+                        $branch = $child->getBranch();
+
+                        // If the branch's structure doesn't have a key, the structure is simply invalid.
+
+                        if ($branch->getStructure()->getKey() === null) {
+
+                            throw new Exception\BadStructure('A branch\'s structure cannot have a null key');
+                        }
+
+                        // If the predicates succeed, validate the structure.
+
+                        if ($branch->test($json)) {
+
+                            // If the branch's structure didn't exist, throw error.
     
-    /**
-     * Creates a string structure.
-     *
-     * @param string $key The key of the structure.
-     * @param boolean $required Whether or not this structure is required.
-     * @return self
-     */
-    public static function string(string $key, bool $required = true): self
-    {
-        return new Structure($key, new Options(JsonUtils::STRING, $required));
+                            if (!$json->hasField($branch->getStructure()->getKey())) {
+    
+                                $reports->addFatal('Missing required key "' . $branch->getStructure()->getKey() . '" for branch "' . $branch->getLabel() . '"');
+    
+                                continue;
+                            }
+
+                            $field = $json->getField($branch->getStructure()->getKey());
+
+                            $reports->addInfo('Successfully branched to "' . $branch->getLabel() . '"');
+                            $validKeys[] = $branch->getStructure()->getKey();
+
+                            $branch->getStructure()->compare($field, $reports);
+                        }
+                        
+                        continue;
+                    }
+
+                    // Compare with the field, if existent.
+
+                    if ($child->getKey() !== null) {
+
+                        $child->compare($json->getField($child->getKey()), $reports->addChildReport(new Reports($json->getField($child->getKey()), $child->getKey())));
+                    }
+
+                    // If the child is a placeholder, do special check.
+
+                    if ($child->getOptions()->isPlaceholder() && !$child->getOptions()->usesAncestor()) {
+
+                        // Create a clone in order to preserve this structure.
+
+                        $placeholder = clone $child;
+                        $placeholder->setOptions(clone $placeholder->getOptions());
+                        $placeholder->getOptions()->setPlaceholder(false);
+                        
+                        // Cycle through all of Json's fields and use their keys instead.
+
+                        $fields = $json->getFields($placeholder->getOptions()->getExpectedType(), $placeholder->getOptions()->isExpectedType(Json::NULL));
+
+                        for ($i = 0, $j = count($fields->getCollection()); $i < $j; $i++) {
+
+                            $currentJson = $fields->getCollection()[$i];
+
+                            // Set up clone to do its work correctly.
+
+                            $placeholder->setKey($currentJson->getKey());
+                            $placeholder->compare($currentJson, $reports);
+
+                            // Add key to list of valid keys.
+
+                            $validKeys[] = $currentJson->getKey();
+                        }
+                    }
+                } catch (Exception\NotFound $e) {
+
+                    // Catch if field didn't exist.
+
+                    if ($child->getOptions()->isRequired()) {
+
+                        $reports->addFatal('Missing required field "' . $child->getKey() . '"');
+                    }
+                } catch (Exception\JsonException $e) {
+
+                    $reports->addFatal($e->getMessage());
+                }
+            }
+
+            // And check for invalid keys.
+
+            $invalidKeys = $json->getInvalidKeys(...array_merge($validKeys, $this->getValidKeys()));
+
+            for ($i = 0, $j = count($invalidKeys); $i < $j; $i++) {
+
+                $reports->addWarning('Unexpected key "' . $invalidKeys[$i] . '"; check for typos!');
+            }
+        }
+
+        // If the structure is an array...
+
+        if ($this->getOptions()->isExpectedType(Json::ARRAY) && $json->isType(Json::ARRAY)) {
+
+            $allFoundElements = [];
+
+            // Cycle through each of the provided elements.
+
+            $arrValues = $json->getElements(Json::ANY, true);
+            $failures = [];
+
+            for ($i = 0, $j = count($arrValues->getCollection()); $i < $j; $i++) {
+
+                $value = $arrValues->getElement($i);
+                $failed = true;
+
+                // Then cycle through each of the expected elements.
+
+                foreach ($this->getElements() as $element) {
+
+                    // If the element itself is an ancestor, get that ancestor first.
+
+                    if ($element->getOptions()->usesAncestor()) {
+
+                        $element = clone $element->findAncestor($element->getOptions()->getAncestor());
+                    }
+
+                    // If the element is of the correct type, it passes the test and can be compared.
+
+                    if ($value->isType($element->getOptions()->getExpectedType())) {
+                        
+                        $failed = false;
+                        $element->compare($value, $reports);
+                    }
+                }
+
+                // If the provided element does not match any expected element, it failed.
+
+                if ($failed) {
+
+                    $failures[] = $value;
+                }
+                
+            }
+
+            // Cycle through all the failures and add a warning.
+
+            for ($i = 0, $j = count($failures); $i < $j; $i++) {
+
+                $reports->addWarning('Element with the following value was not expected: <code>' . $failures[$i]->toJsonString() . '</code>');
+            }
+        }
+
+        // Cycle through all audits.
+
+        foreach ($this->audits as $audit) {
+
+            $succeeds = true;
+
+            // Cycle through the audit's predicates, if available.
+
+            for ($i = 0, $j = count($audit['predicates']); $i < $j; $i++) {
+
+                // If the predicate fails, say so and stop the loop.
+
+                if (!$audit['predicates'][$i]->test($json)) {
+
+                    $succeeds = false;
+                    break;
+                }
+            }
+
+            // If every single predicate succeeded, perform the audit.
+            
+            if ($succeeds) {
+
+                $audit['audit']->audit($this, $json, $reports);
+            }
+        }
     }
 
     /**
-     * Creates an array structure.
+     * Finds a parent with the key name of the specified ancestor.
      * 
-     * Use branches to validate each element.
-     * 
-     * @param string $key The key of the structure.
-     * @param boolean $required Whether or not this structure is required.
+     * If none are found, throws error instead.
+     *
+     * @param string $ancestor The key of the ancestor to locate.
      * @return self
      */
-    public static function array(string $key, bool $required = true): self
+    public function findAncestor(string $ancestor = null): self
     {
-        return new Structure($key, new Options(JsonUtils::ARRAY, $required));
+        if ($this->getParent() === null) {
+
+            throw new Exception\BadStructure('Could not locate ancestor "' . $ancestor . '"');
+        }
+
+        return !$this->getParent()->getOptions()->branches() && $this->getParent()->getKey() === $ancestor ? $this->getParent() : $this->getParent()->findAncestor($ancestor);
     }
 
     /**
-     * Creates an object structure.
+     * Returns the valid keys of the structure.
      *
-     * @param string $key The key of the structure.
-     * @param boolean $required Whether or not this structure is required.
-     * @param self ...$children The structures nested within this structure.
+     * @return array
+     */
+    protected function getValidKeys(): array
+    {
+        $keys = [];
+
+        foreach ($this->getChildren() as $child) {
+
+            if ($child->getKey() !== null) {
+
+                $keys[] = $child->getKey();
+            }
+        }
+
+        return $keys;
+    }
+
+    /**
+     * Returns a designated root structure. May specify which datatypes it can be.
+     *
+     * @param integer $type The datatypes of the root.
+     * @param self ...$children The child structures of the root, if it's an object.
      * @return self
      */
-    public static function object(string $key, bool $required = true, self ...$children): self
+    public static function root(int $type = Json::OBJECT, self ...$children): self
     {
-        return new Structure($key, new Options(JsonUtils::OBJECT, $required), ...$children);
+        $options = OptionsBuilder::required()::type($type)::build();
+
+        return new self(null, $options, ...$children);
+    }
+
+    /**
+     * Specifies a structure in which the key name in Json can be anything,
+     * provided that the Json matches the specified type of the placeholder.
+     * Any Json fields that do not match the datatype will not throw an error
+     * immediately, but rather will be validated against any other structures
+     * that are a sibling to the placeholder.
+     *
+     * @param integer $type The datatype of the placeholder.
+     * @param self ...$children Optional children, if the structure is an object.
+     * @return self
+     */
+    public static function placeholder(int $type, self ...$children): self
+    {
+        $options = OptionsBuilder::placeholder()::type($type)::build();
+
+        return new self(null, $options, ...$children);
+    }
+
+    /**
+     * Specifies a boolean structure.
+     *
+     * @param string $key The key of the field.
+     * @param boolean $required Whether or not the structure is required.
+     * @return self
+     */
+    public static function boolean(string $key = null, bool $required = true): self
+    {
+        return new self($key, OptionsBuilder::type(Json::BOOLEAN)::required($required)::build());
+    }
+
+    /**
+     * Specifies an integer structure.
+     *
+     * @param string $key The key of the field.
+     * @param boolean $required Whether or not the structure is required.
+     * @return self
+     */
+    public static function integer(string $key = null, bool $required = true): self
+    {
+        return new self($key, OptionsBuilder::type(Json::INTEGER)::required($required)::build());
+    }
+
+    /**
+     * Specifies a double structure.
+     *
+     * @param string $key The key of the field.
+     * @param boolean $required Whether or not the structure is required.
+     * @return self
+     */
+    public static function double(string $key = null, bool $required = true): self
+    {
+        return new self($key, OptionsBuilder::type(Json::DOUBLE)::required($required)::build());
+    }
+
+    /**
+     * Specifies a numeric structure.
+     * 
+     * This includes: integer, double.
+     *
+     * @param string $key The key of the field.
+     * @param boolean $required Whether or not the structure is required.
+     * @return self
+     */
+    public static function number(string $key = null, bool $required = true): self
+    {
+        return new self($key, OptionsBuilder::type(Json::NUMBER)::required($required)::build());
+    }
+
+    /**
+     * Specifies a string structure.
+     *
+     * @param string $key The key of the field.
+     * @param boolean $required Whether or not the structure is required.
+     * @return self
+     */
+    public static function string(string $key = null, bool $required = true): self
+    {
+        return new self($key, OptionsBuilder::type(Json::STRING)::required($required)::build());
+    }
+
+    /**
+     * Specifies a scalar structure.
+     * 
+     * This includes: boolean, integer, double, string.
+     *
+     * @param string $key The key of the field.
+     * @param boolean $required Whether or not the structure is required.
+     * @return self
+     */
+    public static function scalar(string $key = null, bool $required = true): self
+    {
+        return new self($key, OptionsBuilder::type(Json::SCALAR)::required($required)::build());
+    }
+
+    /**
+     * Specifies a null structure.
+     *
+     * @param string $key The key of the field.
+     * @param boolean $required Whether or not the structure is required.
+     * @return self
+     */
+    public static function null(string $key = null, bool $required = true): self
+    {
+        return new self($key, OptionsBuilder::type(Json::NULL)::required($required)::build());
+    }
+
+    /**
+     * Specifies a structure with a variety of datatypes, as supplied.
+     *
+     * @param string $key The key of the field.
+     * @param integer $type The datatype of the structure.
+     * @param boolean $required Whether or not the structure is required.
+     * @param self ...$children Any children, provided this mixed structure can be an object.
+     * @return self
+     */
+    public static function mixed(string $key = null, int $type = Json::ANY, bool $required = true, self ...$children): self
+    {
+        $options = OptionsBuilder::placeholder()::type($type)::build();
+
+        return new self($key, $options, ...$children);
+    }
+
+    /**
+     * Specifies an object structure with optional children.
+     *
+     * @param string $key The key of the object.
+     * @param boolean $required Whether or not the structure is required.
+     * @param self ...$children The children within the object.
+     * @return self
+     */
+    public static function object(string $key = null, bool $required = true, self ...$children): self
+    {
+        return new self($key, OptionsBuilder::type(Json::OBJECT)::required($required)::build(), ...$children);
+    }
+
+    /**
+     * Specifies an array structure.
+     *
+     * @param string $key The key of the field.
+     * @param boolean $required Whether or not the structure is required.
+     * @return self
+     */
+    public static function array(string $key = null, bool $required = true, self ...$elements): self
+    {
+        $structure = new self($key, OptionsBuilder::type(Json::ARRAY)::required($required)::build());
+
+        $structure->addElements(...$elements);
+
+        return $structure;
+    }
+
+    /**
+     * Ascends through the ancestors of the structure to find an ancestor
+     * that has the provided $ancestor key. Typically if the $ancestor is null, the
+     * resulting ancestor will be the root of the structure, allowing for
+     * a totally recursive structure.
+     * 
+     * $key will be the name of the field to copy the ancestor to. It can also be null,
+     * such as when used is arrays.
+     *
+     * @param string $key The key of the structure that will replicate the structure of the ancestor.
+     * @param boolean $required Whether or not the structure is required.
+     * @param string $ancestor The key of the ancestor to locate, used as the value of $key.
+     * @return self
+     */
+    public static function ascend(string $key = null, bool $required = true, string $ancestor = null): self
+    {
+        return new self($key, OptionsBuilder::ancestor($ancestor)::required($required)::build());
+    }
+
+    /**
+     * Creates a branching structure using the provided data.
+     *
+     * @param string $label The user-friendly label of the branch.
+     * @param Structure $branch The structure that will be traversed if the predicates succeed.
+     * @param IPredicate ...$predicates The predicates that all must succeed to traverse the branch.
+     * @return self
+     */
+    public static function branch(string $label, Structure $branch, IPredicate ...$predicates): self
+    {
+        $structure = new self(null, OptionsBuilder::required()::branches()::build());
+        $structure->setBranch(new Branch($label, $branch, ...$predicates));
+
+        return $structure;
     }
 }

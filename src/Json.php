@@ -1,0 +1,502 @@
+<?php namespace Celestriode\JsonUtils;
+
+use Celestriode\JsonUtils\Exception\WrongType;
+use Celestriode\JsonUtils\Exception\NotFound;
+
+class Json
+{
+    // TODO: more standard errors.
+    private const WRONG_FIELD_TYPE = 'Cannot get field "%s" because it was of type "%s" instead of the expected type "%s"';
+
+    const ANY = -1;
+    const INTEGER = 1;
+    const DOUBLE = 2;
+    const BOOLEAN = 4;
+    const STRING = 8;
+    const ARRAY = 16;
+    const OBJECT = 32;
+    const NULL = 64;
+    const NUMBER = self::INTEGER | self::DOUBLE;
+    const SCALAR = self::NUMBER | self::BOOLEAN | self::STRING;
+
+    protected $key;
+    protected $value;
+    protected $type;
+
+    protected $parent;
+
+    /**
+     * This is the housing unit for data retrieved from a JSON input. This data
+     * is used when comparing to structures.
+     *
+     * @param string $raw The raw string before being decoded.
+     * @param string $key The key of the value, if applicable. Not applicable for root structures or array elements.
+     * @param mixed $value The decoded JSON value itself.
+     */
+    public function __construct(string $key = null, $value = null, self $parent = null)
+    {
+        $this->setKey($key);
+        $this->setValue($value);
+        $this->setParent($parent);
+    }
+
+    public function setParent(self $parent = null): void
+    {
+        $this->parent = $parent;
+    }
+
+    public function getParent(): ?self
+    {
+        return $this->parent;
+    }
+
+    /**
+     * Returns the key associated with the JSON data, if applicable.
+     *
+     * @return string|null
+     */
+    public function getKey(): ?string
+    {
+        return $this->key;
+    }
+
+    /**
+     * Returns the JSON value after the raw string was decoded.
+     *
+     * @return mixed
+     */
+    public function getValue()
+    {
+        return $this->value;
+    }
+
+    /**
+     * Returns the datatype of the JSON input.
+     *
+     * @return integer|null
+     */
+    public function getType(): ?int
+    {
+        return $this->type;
+    }
+
+    /**
+     * Sets the key associated with the JSON data, if applicable.
+     *
+     * @param string $key
+     * @return void
+     */
+    public function setKey(string $key = null): void
+    {
+        $this->key = $key;
+    }
+
+    /**
+     * Sets the decoded JSON, whatever datatype it may be.
+     *
+     * @param mixed $value The decoded JSON value.
+     * @return void
+     */
+    public function setValue($value): void
+    {
+        $this->value = $value;
+        $this->setType(JsonUtils::normalizeTypeString(gettype($value)));
+    }
+
+    /**
+     * Sets the datatype of the JSON input.
+     *
+     * @param integer $type
+     * @return void
+     */
+    public function setType(int $type): void
+    {
+        $this->type = $type;
+    }
+
+    /**
+     * Returns whether or not the datatype of the JSON matches the input.
+     *
+     * @param integer $type The datatype to verify.
+     * @return boolean
+     */
+    public function isType(int $type): bool
+    {
+        return ($this->getType() & $type) !== 0;
+    }
+
+    /**
+     * Returns the keys of the fields within the object.
+     *
+     * @return array
+     */
+    public function getKeys(): array
+    {
+        // Throw if this isn't an object.
+
+        if (!$this->isType(self::OBJECT)) {
+
+            throw new WrongType('Cannot get keys within "' . $this->getKey() . '" because it is of type "' . implode(', ', JsonUtils::normalizeTypeInteger($this->getType())) . '" instead of type "object"');
+        }
+
+        // Otherwise return the keys of the object.
+
+        return array_keys((array)$this->getValue());
+    }
+
+    /**
+     * Returns a list of keys that are not within the provided list of valid keys.
+     * Use this for notifying the user of potentially incorrect structure, such as
+     * a simple typo. Only checks keys against the root depth of the given object.
+     *
+     * @param string ...$validKeys
+     * @return array
+     */
+    public function getInvalidKeys(string ...$validKeys): array
+    {
+        return array_values(array_diff($this->getKeys(), $validKeys));
+    }
+
+    /**
+     * Returns whether or not the object has the specified field, regardless
+     * of type.
+     *
+     * @param string $key The name of the field to locate.
+     * @return boolean
+     */
+    public function hasField(string $key): bool
+    {
+        return $this->isType(self::OBJECT) && property_exists($this->getValue(), $key);
+    }
+
+    /**
+     * Returns all elements within the array as Json classes.
+     *
+     * @param integer $type The datatype of elements to get.
+     * @param boolean $nullable Whether or not to include null values.
+     * @return array
+     */
+    public function getElements(int $type = self::ANY, bool $nullable = false): JsonCollection
+    {
+        // Throw if this isn't an array.
+
+        if (!$this->isType(self::ARRAY)) {
+
+            throw new WrongType('Cannot get elements because this structure is of type "' . implode(', ', JsonUtils::normalizeTypeInteger($this->getType())) . '" when it must be of type "array"');
+        }
+
+        // Cycle through all elements and create a new JSON class from them.
+
+        $raw = [];
+        $collection = [];
+
+        for ($i = 0, $j = count($this->getValue()); $i < $j; $i++) {
+
+            $current = $this->getValue()[$i];
+            $actualType = JsonUtils::normalizeTypeString(gettype($current));
+
+            // If null and accepting null or matches type, add field. What is this monstrocity.
+
+            if ($nullable && ($actualType & self::NULL) !== 0 || (($actualType & $type) !== 0 && ($nullable || !$nullable && ($actualType & self::NULL) === 0))) {
+                
+                $raw[] = $current;
+                $collection[] = new self(null, $current, $this);
+            }
+
+        }
+
+        // Return the completed collection.
+
+        return new JsonCollection($this->getKey(), $raw, ...$collection);
+    }
+
+    /**
+     * Returns a single element by index.
+     *
+     * @param integer $index The index to get the element at.
+     * @return self
+     */
+    public function getElement(int $index): self
+    {
+        // Throw if this isn't an array.
+
+        if (!$this->isType(self::ARRAY)) {
+
+            throw new WrongType('Cannot get elements because this structure is of type "' . implode(', ', JsonUtils::normalizeTypeInteger($this->getType())) . '" when it must be of type "array"');
+        }
+
+        // Throw if the index didn't exist.
+
+        if (!isset($this->getValue()[$index])) {
+
+            throw new NotFound('Could not find index "' . $index . '" within array "' . $this->getKey() . '"');
+        }
+
+        // Return the element.
+
+        return new self(null, $this->getValue()[$index], $this);
+    }
+
+    /**
+     * Returns all fields within the object as Json classes.
+     *
+     * @param integer $type The datatype of elements to get.
+     * @param boolean $nullable Whether or not to include null values.
+     * @return JsonCollection
+     */
+    public function getFields(int $type = self::ANY, bool $nullable = false): JsonCollection
+    {
+        // Throw if this isn't an object.
+
+        if (!$this->isType(self::OBJECT)) {
+
+            throw new WrongType('Cannot get fields because this structure is of type "' . implode(', ', JsonUtils::normalizeTypeInteger($this->getType())) . '" when it must be of type "object"');
+        }
+
+        $keys = $this->getKeys();
+        $raw = new \stdClass();
+        $collection = [];
+
+        // Cycle through each key in this object and get the Json from it.
+
+        for ($i = 0, $j = count($keys); $i < $j; $i++) {
+
+            $current = $this->getField($keys[$i], self::ANY, $nullable);
+
+            // If the Json is of the correct type and has a key, add it to the collection.
+
+            if ($current->isType($type) && $current->getKey() !== null) {
+
+                $raw->{$current->getKey()} = $current->getValue();
+                $collection[] = $current;
+            }
+        }
+
+        // Return the completed collection.
+
+        return new JsonCollection($this->getKey(), $raw, ...$collection);
+    }
+
+    /**
+     * Returns a specific field within the object.
+     *
+     * @param string $key The name of the field.
+     * @param boolean $nullable Whether or not to include null values.
+     * @return self
+     */
+    public function getField(string $key, int $expectedType = self::ANY, bool $nullable = false): self
+    {
+        // Throw if this JSON structure isn't an object.
+
+        if (!$this->isType(self::OBJECT)) {
+
+            throw new WrongType('Cannot get field "' . $key . '" because this structure is of type "' . implode(', ', JsonUtils::normalizeTypeInteger($this->getType())) . '" when it must be of type "object"');
+        }
+
+        // Throw if this JSON object didn't have the field.
+
+        if (!$this->hasField($key)) {
+
+            throw new NotFound('Cannot find field "' . $key . '"');
+        }
+
+        // Throw if the field was not of the expected type.
+
+        if ($expectedType !== self::ANY) {
+
+            $actualType = JsonUtils::normalizeTypeString(gettype($this->getValue()->{$key}));
+
+            if (($actualType & $expectedType) === 0 || ($actualType & self::NULL) !== 0 && !$nullable) {
+    
+                throw new WrongType(sprintf(self::WRONG_FIELD_TYPE, $key, implode(', ', JsonUtils::normalizeTypeInteger($actualType)), implode(', ', JsonUtils::normalizeTypeInteger($expectedType))));
+            }
+        }
+
+        // Create intermediate JSON class.
+
+        return new self($key, $this->getValue()->{$key}, $this);
+    }
+
+    /**
+     * Passes the Json object to the predicate to ensure it passes.
+     * If so, it runs the optionally-supplied function.
+     * 
+     * Returns 1 for success, 0 for failure.
+     *
+     * @param IPredicate $predicate The predicate to test the Json objects against.
+     * @param \closure $func The function to run for predicates that succeed.
+     * @return boolean
+     */
+    public function checkJson(IPredicate $predicate, \closure $func = null): int
+    {
+        // Check the predicate.
+
+        if ($predicate->test($this)) {
+
+            // Run the function if applicable.
+
+            if ($func !== null) {
+
+                $func($this);
+            }
+
+            // Return 1.
+
+            return 1;
+        }
+
+        // Otherwise it failed, return 0.
+
+        return 0;
+    }
+
+    /**
+     * Returns a boolean field.
+     *
+     * @param string $key The key to locate.
+     * @param boolean $nullable Whether or not to include null values.
+     * @return self
+     */
+    public function getBoolean(string $key, bool $nullable = false): self
+    {
+        return $this->getField($key, self::BOOLEAN, $nullable);
+    }
+
+    /**
+     * Returns an integer field.
+     *
+     * @param string $key The key to locate.
+     * @param boolean $nullable Whether or not to include null values.
+     * @return self
+     */
+    public function getInteger(string $key, bool $nullable = false): self
+    {
+        return $this->getField($key, self::INTEGER, $nullable);
+    }
+
+    /**
+     * Returns a double field.
+     *
+     * @param string $key The key to locate.
+     * @param boolean $nullable Whether or not to include null values.
+     * @return self
+     */
+    public function getDouble(string $key, bool $nullable = false): self
+    {
+        return $this->getField($key, self::DOUBLE, $nullable);
+    }
+
+    /**
+     * Returns an integer or double field.
+     *
+     * @param string $key The key to locate.
+     * @param boolean $nullable Whether or not to include null values.
+     * @return self
+     */
+    public function getNumber(string $key, bool $nullable = false): self
+    {
+        return $this->getField($key, self::NUMBER, $nullable);
+    }
+
+    /**
+     * Returns a string field.
+     *
+     * @param string $key The key to locate.
+     * @param boolean $nullable Whether or not to include null values.
+     * @return self
+     */
+    public function getString(string $key, bool $nullable = false): self
+    {
+        return $this->getField($key, self::STRING, $nullable);
+    }
+
+    /**
+     * Returns an array field.
+     *
+     * @param string $key The key to locate.
+     * @param boolean $nullable Whether or not to include null values.
+     * @return self
+     */
+    public function getArray(string $key, bool $nullable = false): self
+    {
+        return $this->getField($key, self::ARRAY, $nullable);
+    }
+
+    /**
+     * Returns an object field.
+     *
+     * @param string $key The key to locate.
+     * @param boolean $nullable Whether or not to include null values.
+     * @return self
+     */
+    public function getObject(string $key, bool $nullable = false): self
+    {
+        return $this->getField($key, self::OBJECT, $nullable);
+    }
+
+    /**
+     * Returns a boolean, integer, double, or string field.
+     *
+     * @param string $key The key to locate.
+     * @param boolean $nullable Whether or not to include null values.
+     * @return self
+     */
+    public function getScalar(string $key, bool $nullable = false): self
+    {
+        return $this->getField($key, self::SCALAR, $nullable);
+    }
+
+    /**
+     * Returns a JSON field as a string.
+     * 
+     * For example, using the following structure:
+     * 
+     * {"test":{"hello":false}}
+     * 
+     * Using toString() on object "test" will return:
+     * 
+     * "test": {"hello":false}
+     *
+     * @return string
+     */
+    public function toJsonString(bool $prettify = false): string
+    {
+        $buffer = '';
+
+        if ($this->getKey() !== null) {
+
+            $buffer .= json_encode($this->getKey()) . ':';
+        }
+
+        $buffer .= $this->toString($prettify);
+
+        return $buffer;
+    }
+
+    /**
+     * Returns the value as a string, based on the datatype.
+     * 
+     * For example, using the following structure:
+     * 
+     * {"test":{"hello":false}}
+     * 
+     * Using toString() on object "test" will return:
+     * 
+     * {"hello":false}
+     *
+     * @return string
+     */
+    public function toString(bool $prettify = false): string
+    {
+        // Return if scalar.
+
+        if ($this->isType(self::SCALAR | self::ARRAY | self::OBJECT | self::NULL)) {
+
+            return json_encode($this->getValue(), ($prettify ? JSON_PRETTY_PRINT : 0));
+        }
+
+        // Unknown datatype, throw error.
+
+        throw new WrongType('Could not handle value with datatype "' . gettype($this->getValue()) . '"');
+    }
+}
