@@ -289,7 +289,7 @@ class Structure
 
         if ($this->getKey() !== $json->getKey()) {
 
-            $reports->addFatal('Key "' . $json->getKey() . '" does not match expected key "' . $this->getKey());
+            $reports->addFatal('Key "' . htmlentities($json->getKey()) . '" does not match expected key "' . htmlentities($this->getKey()));
         }
 
         // Verify datatype.
@@ -301,10 +301,10 @@ class Structure
 
             if ($this->getKey() !== null) {
 
-                $reports->addFatal('Incorrect datatype for field "' . $this->getKey() . '" with value <code>' . $json->toString() . '</code> (expected "' . $needs . '", was "' . $has . '")');
+                $reports->addFatal('Incorrect datatype for field "' . htmlentities($this->getKey()) . '" with value <code>' . htmlentities($json->toString()) . '</code> (expected "' . htmlentities($needs) . '", was "' . htmlentities($has) . '")');
             } else {
 
-                $reports->addFatal('Incorrect datatype for value <code>' . $json->tojsonString() . '</code> (expected "' . $needs . '", was "' . $has . '")');
+                $reports->addFatal('Incorrect datatype for value <code>' . htmlentities($json->tojsonString()) . '</code> (expected "' . htmlentities($needs) . '", was "' . htmlentities($has) . '")');
             }
         }
 
@@ -341,14 +341,14 @@ class Structure
     
                             if (!$json->hasField($branch->getStructure()->getKey())) {
     
-                                $reports->addFatal('Missing required key "' . $branch->getStructure()->getKey() . '" for branch "' . $branch->getLabel() . '"');
+                                $reports->addFatal('Missing required key "' . htmlentities($branch->getStructure()->getKey()) . '" for branch "' . htmlentities($branch->getLabel()) . '"');
     
                                 continue;
                             }
 
                             $field = $json->getField($branch->getStructure()->getKey());
 
-                            $reports->addInfo('Successfully branched to "' . $branch->getLabel() . '"');
+                            $reports->addInfo('Successfully branched to "' . htmlentities($branch->getLabel()) . '"');
                             $validKeys[] = $branch->getStructure()->getKey();
 
                             $branch->getStructure()->compare($field, $reports);
@@ -398,11 +398,11 @@ class Structure
 
                     if ($child->getOptions()->isRequired()) {
 
-                        $reports->addFatal('Missing required field "' . $child->getKey() . '"');
+                        $reports->addFatal('Missing required field "' . htmlentities($child->getKey()) . '"');
                     }
                 } catch (Exception\JsonException $e) {
 
-                    $reports->addFatal($e->getMessage());
+                    $reports->addFatalhtmlentities(($e->getMessage()));
                 }
             }
 
@@ -412,7 +412,7 @@ class Structure
 
             for ($i = 0, $j = count($invalidKeys); $i < $j; $i++) {
 
-                $reports->addWarning('Unexpected key "' . $invalidKeys[$i] . '"; check for typos!');
+                $reports->addWarning('Unexpected key "' . htmlentities($invalidKeys[$i]) . '"; check for typos!');
             }
         }
 
@@ -465,7 +465,7 @@ class Structure
 
             for ($i = 0, $j = count($failures); $i < $j; $i++) {
 
-                $reports->addWarning('Element with the following value was not expected: <code>' . $failures[$i]->toJsonString() . '</code>');
+                $reports->addWarning('Element with the following value was not expected: <code>' . htmlentities($failures[$i]->toJsonString()) . '</code>');
             }
         }
 

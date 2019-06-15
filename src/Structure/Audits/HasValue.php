@@ -30,7 +30,7 @@ class HasValue extends Audit
 
         if (!$predicate->test($json)) {
             
-            $reports->addWarning($predicate->getError());
+            $reports->addWarning(htmlentities($predicate->getError()));
         }
     }
 }
