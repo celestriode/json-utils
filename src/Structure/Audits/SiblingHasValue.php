@@ -31,7 +31,7 @@ class SiblingHasValue extends HasValue
 
         if (!$predicate->test($json)) {
             
-            $reports->addWarning(htmlentities($predicate->getError()));
+            $reports->addWarning($predicate->getError());
         }
     }
 }
