@@ -41,6 +41,6 @@ class SiblingHasValue extends HasValue
      */
     public function getError(): string
     {
-        return 'Sibling "' . $this->sibling . '" can only have one of the following values: ' . $this->normalizeValues($this->values);
+        return 'Sibling "' . $this->sibling . '" can only have one of the following values: ' . $this->normalizeValues(...$this->values);
     }
 }

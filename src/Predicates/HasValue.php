@@ -38,6 +38,6 @@ class HasValue extends Predicate
      */
     public function getError(): string
     {
-        return 'Field can only have one of the following values: ' . $this->normalizeValues($this->values);
+        return 'Field can only have one of the following values: ' . $this->normalizeValues(...$this->values);
     }
 }
