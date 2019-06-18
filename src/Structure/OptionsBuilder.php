@@ -4,12 +4,12 @@ use Celestriode\JsonUtils\Json;
 
 class OptionsBuilder
 {
-    protected static $required = true;
-    protected static $placeholder = false;
-    protected static $type = Json::ANY;
-    protected static $branches = false;
-    protected static $usesAncestor = false;
-    protected static $ancestor;
+    public static $type = Json::ANY;
+    public static $required = true;
+    public static $placeholder = false;
+    public static $branches = false;
+    public static $usesAncestor = false;
+    public static $ancestor;
 
     /**
      * Marks the structure as being required.
@@ -69,9 +69,9 @@ class OptionsBuilder
      * @param string $ancestor
      * @return string
      */
-    public static function ancestor(string $ancestor = null): string
+    public static function ancestor(string $ancestor = null, bool $usesAncestor = true): string
     {
-        self::$usesAncestor = true;
+        self::$usesAncestor = $usesAncestor;
         self::$ancestor = $ancestor;
 
         return __CLASS__;
@@ -93,11 +93,7 @@ class OptionsBuilder
         $options->setRequired(self::$required);
         $options->setPlaceholder(self::$placeholder);
         $options->setBranches(self::$branches);
-
-        if (self::$usesAncestor) {
-
-            $options->setAncestor(self::$ancestor);
-        }
+        $options->setAncestor(self::$ancestor, self::$usesAncestor);
 
         self::$type = Json::ANY;
         self::$required = true;

@@ -27,8 +27,19 @@ class Reports
      */
     public function __construct(Json $json, string $key = null)
     {
+        $this->setKey($key);
+        $this->setJson($json);
+    }
+
+    /**
+     * Stores the key referring to the incoming Json.
+     *
+     * @param string $key The key referring to the Json.
+     * @return void
+     */
+    public function setKey(string $key = null): void
+    {
         $this->key = $key;
-        $this->json = $json;
     }
 
     /**
@@ -39,6 +50,17 @@ class Reports
     public function getKey(): ?string
     {
         return $this->key;
+    }
+
+    /**
+     * Sets the Json object that this report is referring directly to.
+     *
+     * @param Json $json The Json at the current depth.
+     * @return void
+     */
+    public function setJson(Json $json): void
+    {
+        $this->json = $json;
     }
 
     /**
@@ -108,7 +130,7 @@ class Reports
      */
     public function hasInfo(): bool
     {
-        return !empty($this->info);
+        return !empty($this->getInfo());
     }
 
     /**
@@ -118,7 +140,7 @@ class Reports
      */
     public function hasWarnings(): bool
     {
-        return !empty($this->warnings);
+        return !empty($this->getWarnings());
     }
 
     /**
@@ -128,7 +150,7 @@ class Reports
      */
     public function hasErrors(): bool
     {
-        return !empty($this->warnings) && !empty($this->fatals);
+        return !empty($this->getWarnings()) || !empty($this->getFatals());
     }
 
     /**
@@ -138,7 +160,17 @@ class Reports
      */
     public function isFatal(): bool
     {
-        return !empty($this->fatals);
+        return !empty($this->getFatals());
+    }
+
+    /**
+     * Returns whether or not there are any messages of any kind.
+     *
+     * @return boolean
+     */
+    public function hasMessages(): bool
+    {
+        return !empty($this->getInfo()) || $this->hasErrors();
     }
 
     /**
@@ -154,9 +186,9 @@ class Reports
             return true;
         }
 
-        for ($i = 0, $j = count($this->children); $i < $j; $i++) {
+        for ($i = 0, $j = count($this->getChildReports()); $i < $j; $i++) {
 
-            if ($this->children[$i]->hasAnyInfo()) {
+            if ($this->getChildReports()[$i]->hasAnyInfo()) {
 
                 return true;
             }
@@ -178,9 +210,9 @@ class Reports
             return true;
         }
 
-        for ($i = 0, $j = count($this->children); $i < $j; $i++) {
+        for ($i = 0, $j = count($this->getChildReports()); $i < $j; $i++) {
 
-            if ($this->children[$i]->hasAnyWarnings()) {
+            if ($this->getChildReports()[$i]->hasAnyWarnings()) {
 
                 return true;
             }
@@ -202,9 +234,9 @@ class Reports
             return true;
         }
 
-        for ($i = 0, $j = count($this->children); $i < $j; $i++) {
+        for ($i = 0, $j = count($this->getChildReports()); $i < $j; $i++) {
 
-            if ($this->children[$i]->hasAnyFatals()) {
+            if ($this->getChildReports()[$i]->hasAnyFatals()) {
 
                 return true;
             }
@@ -212,6 +244,28 @@ class Reports
 
         return false;
 
+    }
+
+    /**
+     * Returns whether or not this report or any of its children has any
+     * warnings or fatals.
+     *
+     * @return boolean
+     */
+    public function hasAnyErrors(): bool
+    {
+        return $this->hasErrors() || $this->hasAnyWarnings() || $this->hasAnyFatals();
+    }
+
+    /**
+     * Returns whether or not this report or any of its children has any
+     * messages of any kind.
+     *
+     * @return boolean
+     */
+    public function hasAnyMessages(): bool
+    {
+        return $this->hasMessages() || $this->hasAnyInfo() || $this->hasAnyErrors();
     }
 
     /**
@@ -245,17 +299,37 @@ class Reports
     }
 
     /**
+     * Returns messages that are either errors or fatals.
+     *
+     * @return array
+     */
+    public function getErrors(): array
+    {
+        return array_merge($this->getWarnings(), $this->getFatals());
+    }
+
+    /**
+     * Returns all messages of any kind.
+     *
+     * @return array
+     */
+    public function getMessages(): array
+    {
+        return array_merge($this->getInfo(), $this->getErrors());
+    }
+
+    /**
      * Returns an array containing strings of all the informational messages.
      *
      * @return array
      */
     public function getAllInfo(): array
     {
-        $info = $this->info;
+        $info = $this->getInfo();
 
-        for ($i = 0, $j = count($this->children); $i < $j; $i++) {
+        for ($i = 0, $j = count($this->getChildReports()); $i < $j; $i++) {
 
-            $info = array_merge($info, $this->children[$i]->getAllInfo());
+            $info = array_merge($info, $this->getChildReports()[$i]->getAllInfo());
         }
 
         return $info;
@@ -268,11 +342,11 @@ class Reports
      */
     public function getAllWarnings(): array
     {
-        $warnings = $this->warnings;
+        $warnings = $this->getWarnings();
 
-        for ($i = 0, $j = count($this->children); $i < $j; $i++) {
+        for ($i = 0, $j = count($this->getChildReports()); $i < $j; $i++) {
 
-            $warnings = array_merge($warnings, $this->children[$i]->getAllWarnings());
+            $warnings = array_merge($warnings, $this->getChildReports()[$i]->getAllWarnings());
         }
 
         return $warnings;
@@ -285,14 +359,34 @@ class Reports
      */
     public function getAllFatals(): array
     {
-        $fatals = $this->fatals;
+        $fatals = $this->getFatals();
 
-        for ($i = 0, $j = count($this->children); $i < $j; $i++) {
+        for ($i = 0, $j = count($this->getChildReports()); $i < $j; $i++) {
 
-            $fatals = array_merge($fatals, $this->children[$i]->getAllFatals());
+            $fatals = array_merge($fatals, $this->getChildReports()[$i]->getAllFatals());
         }
 
         return $fatals;
+    }
+
+    /**
+     * Returns an array containing strings of warning and fatal error messages.
+     *
+     * @return array
+     */
+    public function getAllErrors(): array
+    {
+        return array_merge($this->getAllWarnings(), $this->getAllFatals());
+    }
+
+    /**
+     * Returns an array containing strings of all messages of any kind.
+     *
+     * @return array
+     */
+    public function getAllMessages(): array
+    {
+        return array_merge($this->getAllInfo(), $this->getAllErrors());
     }
 
     /**

@@ -40,11 +40,22 @@ class Json
         $this->setParent($parent);
     }
 
+    /**
+     * Sets the parent Json of this Json, or removes it entirely.
+     *
+     * @param self $parent The parent to set.
+     * @return void
+     */
     public function setParent(self $parent = null): void
     {
         $this->parent = $parent;
     }
 
+    /**
+     * Returns the parent Json of this Json, if applicable.
+     *
+     * @return self|null
+     */
     public function getParent(): ?self
     {
         return $this->parent;
@@ -173,10 +184,9 @@ class Json
      * Returns all elements within the array as Json classes.
      *
      * @param integer $type The datatype of elements to get.
-     * @param boolean $nullable Whether or not to include null values.
      * @return array
      */
-    public function getElements(int $type = self::ANY, bool $nullable = false): JsonCollection
+    public function getElements(int $type = self::ANY): JsonCollection
     {
         // Throw if this isn't an array.
 
@@ -195,10 +205,10 @@ class Json
             $current = $this->getValue()[$i];
             $actualType = JsonUtils::normalizeTypeString(gettype($current));
 
-            // If null and accepting null or matches type, add field. What is this monstrocity.
+            // If null and accepting null or matches type, add field.
 
-            if ($nullable && ($actualType & self::NULL) !== 0 || (($actualType & $type) !== 0 && ($nullable || !$nullable && ($actualType & self::NULL) === 0))) {
-                
+            if (($actualType & $type) !== 0) {
+
                 $raw[] = $current;
                 $collection[] = new self(null, $current, $this);
             }
@@ -241,10 +251,9 @@ class Json
      * Returns all fields within the object as Json classes.
      *
      * @param integer $type The datatype of elements to get.
-     * @param boolean $nullable Whether or not to include null values.
      * @return JsonCollection
      */
-    public function getFields(int $type = self::ANY, bool $nullable = false): JsonCollection
+    public function getFields(int $type = self::ANY): JsonCollection
     {
         // Throw if this isn't an object.
 
@@ -261,7 +270,7 @@ class Json
 
         for ($i = 0, $j = count($keys); $i < $j; $i++) {
 
-            $current = $this->getField($keys[$i], self::ANY, $nullable);
+            $current = $this->getField($keys[$i], self::ANY);
 
             // If the Json is of the correct type and has a key, add it to the collection.
 
@@ -281,10 +290,9 @@ class Json
      * Returns a specific field within the object.
      *
      * @param string $key The name of the field.
-     * @param boolean $nullable Whether or not to include null values.
      * @return self
      */
-    public function getField(string $key, int $expectedType = self::ANY, bool $nullable = false): self
+    public function getField(string $key, int $expectedType = self::ANY): self
     {
         // Throw if this JSON structure isn't an object.
 
@@ -306,7 +314,7 @@ class Json
 
             $actualType = JsonUtils::normalizeTypeString(gettype($this->getValue()->{$key}));
 
-            if (($actualType & $expectedType) === 0 || ($actualType & self::NULL) !== 0 && !$nullable) {
+            if (($actualType & $expectedType) === 0) {
     
                 throw new WrongType(sprintf(self::WRONG_FIELD_TYPE, $key, implode(', ', JsonUtils::normalizeTypeInteger($actualType)), implode(', ', JsonUtils::normalizeTypeInteger($expectedType))));
             }
@@ -359,7 +367,8 @@ class Json
      */
     public function getBoolean(string $key, bool $nullable = false): self
     {
-        return $this->getField($key, self::BOOLEAN, $nullable);
+        $type = $nullable ? self::BOOLEAN | self::NULL : self::BOOLEAN;
+        return $this->getField($key, $type, $nullable);
     }
 
     /**
@@ -371,7 +380,8 @@ class Json
      */
     public function getInteger(string $key, bool $nullable = false): self
     {
-        return $this->getField($key, self::INTEGER, $nullable);
+        $type = $nullable ? self::INTEGER | self::NULL : self::INTEGER;
+        return $this->getField($key, $type, $nullable);
     }
 
     /**
@@ -383,7 +393,8 @@ class Json
      */
     public function getDouble(string $key, bool $nullable = false): self
     {
-        return $this->getField($key, self::DOUBLE, $nullable);
+        $type = $nullable ? self::DOUBLE | self::NULL : self::DOUBLE;
+        return $this->getField($key, $type, $nullable);
     }
 
     /**
@@ -395,7 +406,8 @@ class Json
      */
     public function getNumber(string $key, bool $nullable = false): self
     {
-        return $this->getField($key, self::NUMBER, $nullable);
+        $type = $nullable ? self::NUMBER | self::NULL : self::NUMBER;
+        return $this->getField($key, $type, $nullable);
     }
 
     /**
@@ -407,7 +419,8 @@ class Json
      */
     public function getString(string $key, bool $nullable = false): self
     {
-        return $this->getField($key, self::STRING, $nullable);
+        $type = $nullable ? self::STRING | self::NULL : self::STRING;
+        return $this->getField($key, $type, $nullable);
     }
 
     /**
@@ -419,7 +432,8 @@ class Json
      */
     public function getArray(string $key, bool $nullable = false): self
     {
-        return $this->getField($key, self::ARRAY, $nullable);
+        $type = $nullable ? self::ARRAY | self::NULL : self::ARRAY;
+        return $this->getField($key, $type, $nullable);
     }
 
     /**
@@ -431,7 +445,8 @@ class Json
      */
     public function getObject(string $key, bool $nullable = false): self
     {
-        return $this->getField($key, self::OBJECT, $nullable);
+        $type = $nullable ? self::OBJECT | self::NULL : self::OBJECT;
+        return $this->getField($key, $type, $nullable);
     }
 
     /**
@@ -443,7 +458,8 @@ class Json
      */
     public function getScalar(string $key, bool $nullable = false): self
     {
-        return $this->getField($key, self::SCALAR, $nullable);
+        $type = $nullable ? self::SCALAR | self::NULL : self::SCALAR;
+        return $this->getField($key, $type, $nullable);
     }
 
     /**

@@ -33,6 +33,11 @@ class DataType extends Predicate
      */
     public function getError(): string
     {
+        if ($this->json === null) {
+
+            return 'Datatype of input must be "' . implode(', ', JsonUtils::normalizeTypeInteger($this->datatype)) . '"';
+        }
+
         return 'Datatype of input must be "' . implode(', ', JsonUtils::normalizeTypeInteger($this->datatype)) . '" instead of "' . implode(', ', JsonUtils::normalizeTypeInteger($this->json->getType())) . '"';
     }
 }

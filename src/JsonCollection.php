@@ -2,7 +2,7 @@
 
 use Celestriode\JsonUtils\Exception\NotFound;
 
-class JsonCollection extends Json
+class JsonCollection extends Json implements \Countable
 {
     private $collection = [];
 
@@ -68,7 +68,7 @@ class JsonCollection extends Json
      * @param integer $type The datatype of elements to get.
      * @return array
      */
-    public function getElements(int $type = self::ANY, bool $nullable = false): self
+    public function getElements(int $type = self::ANY): self
     {
         // Just return the collection if there's no extra options.
 
@@ -148,5 +148,15 @@ class JsonCollection extends Json
         // Return the number of elements that passed the predicate.
 
         return $passed;
+    }
+
+    /**
+     * Returns the number of items in the collection.
+     *
+     * @return integer
+     */
+    public function count(): int
+    {
+        return count($this->getCollection());
     }
 }

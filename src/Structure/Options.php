@@ -1,8 +1,10 @@
 <?php namespace Celestriode\JsonUtils\Structure;
 
+use Celestriode\JsonUtils\Json;
+
 class Options
 {
-    protected $expectedType = false;
+    protected $expectedType = Json::ANY;
     protected $required = true;
     protected $placeholder = false;
     protected $branches = false;

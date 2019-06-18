@@ -216,6 +216,16 @@ class Structure
     }
 
     /**
+     * Returns all the audits stored in this structure.
+     *
+     * @return array
+     */
+    public function getAudits(): array
+    {
+        return $this->audits;
+    }
+
+    /**
      * Sets the structure's branch.
      *
      * @param Branch $branch The branch to traverse if possible.
@@ -289,7 +299,7 @@ class Structure
 
         if ($this->getKey() !== $json->getKey()) {
 
-            $reports->addFatal('Key "' . htmlentities($json->getKey()) . '" does not match expected key "' . htmlentities($this->getKey()));
+            $reports->addFatal('Key "' . htmlentities($json->getKey()) . '" does not match expected key "' . htmlentities($this->getKey()) . '"');
         }
 
         // Verify datatype.
@@ -402,7 +412,7 @@ class Structure
                     }
                 } catch (Exception\JsonException $e) {
 
-                    $reports->addFatalhtmlentities(($e->getMessage()));
+                    $reports->addFatal($e->getMessage());
                 }
             }
 
@@ -471,7 +481,7 @@ class Structure
 
         // Cycle through all audits.
 
-        foreach ($this->audits as $audit) {
+        foreach ($this->getAudits() as $audit) {
 
             $succeeds = true;
 
@@ -501,6 +511,9 @@ class Structure
      * Finds a parent with the key name of the specified ancestor.
      * 
      * If none are found, throws error instead.
+     * 
+     * If the parent hosts a branch, skip that parent and go to its parent instead,
+     * as branching structure hosts are essentially just a middle-man.
      *
      * @param string $ancestor The key of the ancestor to locate.
      * @return self
@@ -520,7 +533,7 @@ class Structure
      *
      * @return array
      */
-    protected function getValidKeys(): array
+    public function getValidKeys(): array
     {
         $keys = [];
 
@@ -544,27 +557,7 @@ class Structure
      */
     public static function root(int $type = Json::OBJECT, self ...$children): self
     {
-        $options = OptionsBuilder::required()::type($type)::build();
-
-        return new self(null, $options, ...$children);
-    }
-
-    /**
-     * Specifies a structure in which the key name in Json can be anything,
-     * provided that the Json matches the specified type of the placeholder.
-     * Any Json fields that do not match the datatype will not throw an error
-     * immediately, but rather will be validated against any other structures
-     * that are a sibling to the placeholder.
-     *
-     * @param integer $type The datatype of the placeholder.
-     * @param self ...$children Optional children, if the structure is an object.
-     * @return self
-     */
-    public static function placeholder(int $type, self ...$children): self
-    {
-        $options = OptionsBuilder::placeholder()::type($type)::build();
-
-        return new self(null, $options, ...$children);
+        return new self(null, OptionsBuilder::required()::type($type)::build(), ...$children);
     }
 
     /**
@@ -666,9 +659,7 @@ class Structure
      */
     public static function mixed(string $key = null, int $type = Json::ANY, bool $required = true, self ...$children): self
     {
-        $options = OptionsBuilder::placeholder()::type($type)::build();
-
-        return new self($key, $options, ...$children);
+        return new self($key, OptionsBuilder::required($required)::type($type)::build(), ...$children);
     }
 
     /**
@@ -698,6 +689,22 @@ class Structure
         $structure->addElements(...$elements);
 
         return $structure;
+    }
+
+    /**
+     * Specifies a structure in which the key name in Json can be anything,
+     * provided that the Json matches the specified type of the placeholder.
+     * Any Json fields that do not match the datatype will not throw an error
+     * immediately, but rather will be validated against any other structures
+     * that are a sibling to the placeholder.
+     *
+     * @param integer $type The datatype of the placeholder.
+     * @param self ...$children Optional children, if the structure is an object.
+     * @return self
+     */
+    public static function placeholder(int $type, self ...$children): self
+    {
+        return new self(null, OptionsBuilder::placeholder()::type($type)::build(), ...$children);
     }
 
     /**

@@ -4,6 +4,8 @@ use Seld\JsonLint\JsonParser;
 
 class JsonUtils
 {
+    public const UNKNOWN_TYPE = 'unknown';
+
     /**
      * Lints and parses the raw JSON string using Seld\JsonLint.
      * 
@@ -107,6 +109,11 @@ class JsonUtils
         if (($type & Json::NULL) !== 0) {
 
             $buffer[] = 'null';
+        }
+
+        if (empty($buffer)) {
+
+            return [self::UNKNOWN_TYPE];
         }
 
         return $buffer;
