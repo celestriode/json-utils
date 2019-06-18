@@ -22,8 +22,8 @@ class Reports
      * 
      * Fatals are typically for keys.
      *
-     * @param string $key
-     * @param Json $json
+     * @param Json $json The relevant key to this report.
+     * @param string $key The relevant Json to this report.
      */
     public function __construct(Json $json, string $key = null)
     {
@@ -397,5 +397,23 @@ class Reports
     public function getChildReports(): array
     {
         return $this->children;
+    }
+
+    /**
+     * Creates a new child report and automatically sets it as the child
+     * of this report. Ensures that the new child is of whatever the
+     * actual reports class is, such as if it's been extended.
+     *
+     * @param Json $json The relevant key to this report.
+     * @param string $key The relevant Json to this report.
+     * @return self
+     */
+    public function createChildReport(Json $json, string $key = null): self
+    {
+        $child = new static($json, $key);
+
+        $this->addChildReport($child);
+
+        return $child;
     }
 }

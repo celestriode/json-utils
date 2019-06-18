@@ -291,7 +291,7 @@ class Structure
 
             // Compare and do not continue validating this structure.
 
-            $ancestor->compare($json, $reports->addChildReport(new Reports($json, $this->getKey())));
+            $ancestor->compare($json, $reports->createChildReport($json, $this->getKey()));
             return;
         }
 
@@ -371,7 +371,7 @@ class Structure
 
                     if ($child->getKey() !== null) {
 
-                        $child->compare($json->getField($child->getKey()), $reports->addChildReport(new Reports($json->getField($child->getKey()), $child->getKey())));
+                        $child->compare($json->getField($child->getKey()), $reports->createChildReport($json->getField($child->getKey()), $child->getKey()));
                     }
 
                     // If the child is a placeholder, do special check.
@@ -557,7 +557,7 @@ class Structure
      */
     public static function root(int $type = Json::OBJECT, self ...$children): self
     {
-        return new self(null, OptionsBuilder::required()::type($type)::build(), ...$children);
+        return new static(null, OptionsBuilder::required()::type($type)::build(), ...$children);
     }
 
     /**
@@ -569,7 +569,7 @@ class Structure
      */
     public static function boolean(string $key = null, bool $required = true): self
     {
-        return new self($key, OptionsBuilder::type(Json::BOOLEAN)::required($required)::build());
+        return new static($key, OptionsBuilder::type(Json::BOOLEAN)::required($required)::build());
     }
 
     /**
@@ -581,7 +581,7 @@ class Structure
      */
     public static function integer(string $key = null, bool $required = true): self
     {
-        return new self($key, OptionsBuilder::type(Json::INTEGER)::required($required)::build());
+        return new static($key, OptionsBuilder::type(Json::INTEGER)::required($required)::build());
     }
 
     /**
@@ -593,7 +593,7 @@ class Structure
      */
     public static function double(string $key = null, bool $required = true): self
     {
-        return new self($key, OptionsBuilder::type(Json::DOUBLE)::required($required)::build());
+        return new static($key, OptionsBuilder::type(Json::DOUBLE)::required($required)::build());
     }
 
     /**
@@ -607,7 +607,7 @@ class Structure
      */
     public static function number(string $key = null, bool $required = true): self
     {
-        return new self($key, OptionsBuilder::type(Json::NUMBER)::required($required)::build());
+        return new static($key, OptionsBuilder::type(Json::NUMBER)::required($required)::build());
     }
 
     /**
@@ -619,7 +619,7 @@ class Structure
      */
     public static function string(string $key = null, bool $required = true): self
     {
-        return new self($key, OptionsBuilder::type(Json::STRING)::required($required)::build());
+        return new static($key, OptionsBuilder::type(Json::STRING)::required($required)::build());
     }
 
     /**
@@ -633,7 +633,7 @@ class Structure
      */
     public static function scalar(string $key = null, bool $required = true): self
     {
-        return new self($key, OptionsBuilder::type(Json::SCALAR)::required($required)::build());
+        return new static($key, OptionsBuilder::type(Json::SCALAR)::required($required)::build());
     }
 
     /**
@@ -645,7 +645,7 @@ class Structure
      */
     public static function null(string $key = null, bool $required = true): self
     {
-        return new self($key, OptionsBuilder::type(Json::NULL)::required($required)::build());
+        return new static($key, OptionsBuilder::type(Json::NULL)::required($required)::build());
     }
 
     /**
@@ -659,7 +659,7 @@ class Structure
      */
     public static function mixed(string $key = null, int $type = Json::ANY, bool $required = true, self ...$children): self
     {
-        return new self($key, OptionsBuilder::required($required)::type($type)::build(), ...$children);
+        return new static($key, OptionsBuilder::required($required)::type($type)::build(), ...$children);
     }
 
     /**
@@ -672,7 +672,7 @@ class Structure
      */
     public static function object(string $key = null, bool $required = true, self ...$children): self
     {
-        return new self($key, OptionsBuilder::type(Json::OBJECT)::required($required)::build(), ...$children);
+        return new static($key, OptionsBuilder::type(Json::OBJECT)::required($required)::build(), ...$children);
     }
 
     /**
@@ -684,7 +684,7 @@ class Structure
      */
     public static function array(string $key = null, bool $required = true, self ...$elements): self
     {
-        $structure = new self($key, OptionsBuilder::type(Json::ARRAY)::required($required)::build());
+        $structure = new static($key, OptionsBuilder::type(Json::ARRAY)::required($required)::build());
 
         $structure->addElements(...$elements);
 
@@ -704,7 +704,7 @@ class Structure
      */
     public static function placeholder(int $type, self ...$children): self
     {
-        return new self(null, OptionsBuilder::placeholder()::type($type)::build(), ...$children);
+        return new static(null, OptionsBuilder::placeholder()::type($type)::build(), ...$children);
     }
 
     /**
@@ -723,7 +723,7 @@ class Structure
      */
     public static function ascend(string $key = null, bool $required = true, string $ancestor = null): self
     {
-        return new self($key, OptionsBuilder::ancestor($ancestor)::required($required)::build());
+        return new static($key, OptionsBuilder::ancestor($ancestor)::required($required)::build());
     }
 
     /**
@@ -736,7 +736,7 @@ class Structure
      */
     public static function branch(string $label, Structure $branch, IPredicate ...$predicates): self
     {
-        $structure = new self(null, OptionsBuilder::required()::branches()::build());
+        $structure = new static(null, OptionsBuilder::required()::branches()::build());
         $structure->setBranch(new Branch($label, $branch, ...$predicates));
 
         return $structure;
