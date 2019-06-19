@@ -260,7 +260,17 @@ class Structure
      */
     public function compare(Json $json, Reports $reports = null): Reports
     {
-        $reports = $reports ?? new Reports($json, $this->getKey());
+        if ($reports === null) {
+
+            // If reports wasn't specified, create a new one to move around.
+
+            $reports = new Reports($json, $this->getKey());
+        } else if ($reports->getJson() === null) {
+
+            // If Json was not specified, give it the Json that was already supplied.
+
+            $reports->setJson($json);
+        }
 
         $this->checkStructure($json, $reports);
 
@@ -291,7 +301,7 @@ class Structure
 
             // Compare and do not continue validating this structure.
 
-            $ancestor->compare($json, $reports->createChildReport($json, $this->getKey()));
+            $ancestor->compare($json, $reports);
             return;
         }
 
@@ -361,7 +371,7 @@ class Structure
                             $reports->addInfo('Successfully branched to "' . htmlentities($branch->getLabel()) . '"');
                             $validKeys[] = $branch->getStructure()->getKey();
 
-                            $branch->getStructure()->compare($field, $reports);
+                            $branch->getStructure()->compare($field, $reports->createChildReport($field, $branch->getStructure()->getKey()));
                         }
                         
                         continue;
@@ -458,7 +468,8 @@ class Structure
                     if ($value->isType($element->getOptions()->getExpectedType())) {
                         
                         $failed = false;
-                        $element->compare($value, $reports);
+                        
+                        $element->compare($value, $reports->createChildReport($value));
                     }
                 }
 

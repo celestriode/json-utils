@@ -25,7 +25,7 @@ class Reports
      * @param Json $json The relevant key to this report.
      * @param string $key The relevant Json to this report.
      */
-    public function __construct(Json $json, string $key = null)
+    public function __construct(Json $json = null, string $key = null)
     {
         $this->setKey($key);
         $this->setJson($json);
@@ -58,7 +58,7 @@ class Reports
      * @param Json $json The Json at the current depth.
      * @return void
      */
-    public function setJson(Json $json): void
+    public function setJson(Json $json = null): void
     {
         $this->json = $json;
     }
@@ -66,9 +66,9 @@ class Reports
     /**
      * Returns the JSON stored in the report.
      *
-     * @return Json
+     * @return Json|null
      */
-    public function getJson(): Json
+    public function getJson(): ?Json
     {
         return $this->json;
     }
