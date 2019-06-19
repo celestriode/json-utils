@@ -15,7 +15,8 @@ class Statistics
             'total' => 0
         ],
         'root' => [
-            'datatype' => 'unknown'
+            'datatypes' => [],
+            'children' => 0
         ]
     ];
 
@@ -52,9 +53,18 @@ class Statistics
         $this->incrementDatatypes($json->getType());
     }
 
+    /**
+     * Increments root-based data, including datatype and number of
+     * children, if applicable.
+     *
+     * @param Json $json The Json to base statistics off of.
+     * @return void
+     */
     protected function incrementRoot(Json $json): void
     {
-        $this->statistics['root']['datatype'] = implode('/', JsonUtils::normalizeTypeInteger($json->getType()));
+        $typeName = implode('/', JsonUtils::normalizeTypeInteger($json->getType()));
+
+        $this->addStat(1, 'root', 'datatypes', $typeName);
 
         if ($json->isType(Json::ARRAY)) {
 
