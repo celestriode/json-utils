@@ -85,14 +85,14 @@ class Statistics
      */
     protected function incrementKeyValue(Json $json): void
     {
-        $key = json_encode($json->getKey());
+        $key = json_encode($json->getKey(), JSON_UNESCAPED_SLASHES);
 
         if ($json->isType(Json::SCALAR)) {
 
             // If scalar, store total and the actual value.
 
             $this->addStat(1, 'keys', $key, 'scalar', 'total');
-            $this->addStat(1, 'keys', $key, 'scalar', 'values', $json->getValue());
+            $this->addStat(1, 'keys', $key, 'scalar', 'values', $json->toString());
         } else if ($json->isType(Json::OBJECT)) {
 
             // If object, store total.

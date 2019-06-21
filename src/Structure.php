@@ -405,7 +405,7 @@ class Structure
                             // Set up clone to do its work correctly.
 
                             $placeholder->setKey($currentJson->getKey());
-                            $placeholder->compare($currentJson, $reports);
+                            $placeholder->compare($currentJson, $reports->createChildReport($currentJson, $currentJson->getKey()));
 
                             // Add key to list of valid keys.
 
