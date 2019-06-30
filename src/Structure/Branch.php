@@ -3,18 +3,19 @@
 use Celestriode\JsonUtils\Structure;
 use Celestriode\JsonUtils\IPredicate;
 use Celestriode\JsonUtils\Json;
+use Celestriode\JsonUtils\Exception;
 
 class Branch
 {
     protected $label;
-    protected $structure;
+    protected $structures = [];
     protected $predicates = [];
 
-    public function __construct(string $label, Structure $structure, IPredicate ...$predicates)
+    public function __construct(string $label, IPredicate $predicate, Structure ...$structures)
     {
         $this->setLabel($label);
-        $this->setStructure($structure);
-        $this->addPredicates(...$predicates);
+        $this->addStructures(...$structures);
+        $this->addPredicate($predicate);
     }
 
     /**
@@ -29,14 +30,35 @@ class Branch
     }
 
     /**
-     * Sets the structure to use should this branch succeed.
+     * Adds multiple structures to use should this branch succeed.
+     *
+     * @param Structure ...$structure The structure of the branch.
+     * @return void
+     */
+    public function addStructures(Structure ...$structures): void
+    {
+        for ($i = 0, $j = count($structures); $i < $j; $i++) {
+
+            $this->addStructure($structures[$i]);
+        }
+    }
+
+    /**
+     * Adds a single structure to use should this branch succeed.
      *
      * @param Structure $structure The structure of the branch.
      * @return void
      */
-    public function setStructure(Structure $structure): void
+    public function addStructure(Structure $structure): void
     {
-        $this->structure = $structure;
+        if ($structure->getKey() === null && !$structure->getOptions()->branches()) {
+
+            // If the branch's structure doesn't have a key, the structure is simply invalid.
+
+            throw new Exception\BadStructure('A branch\'s structure cannot have a null key');
+        }
+
+        $this->structures[] = $structure;
     }
 
     /**
@@ -77,13 +99,13 @@ class Branch
     }
 
     /**
-     * Returns the structure that this branch uses.
+     * Returns the structures that this branch uses.
      *
      * @return Structure
      */
-    public function getStructure(): Structure
+    public function getStructures(): array
     {
-        return $this->structure;
+        return $this->structures;
     }
 
     /**
@@ -94,6 +116,21 @@ class Branch
     public function getPredicates(): array
     {
         return $this->predicates;
+    }
+
+    /**
+     * Goes through all of the structures in the branch and sets
+     * their parent as the incoming structure.
+     *
+     * @param Structure $parent The parent of all the structures in the branch.
+     * @return void
+     */
+    public function setParentOfStructures(Structure $parent): void
+    {
+        foreach ($this->getStructures() as $structure) {
+
+            $structure->setParent($parent);
+        }
     }
 
     /**
@@ -122,5 +159,65 @@ class Branch
         // Return whether or not all predicates succeeded.
 
         return $succeeds;
+    }
+
+    /**
+     * Compares the incoming Json to the branch's expected structure.
+     * 
+     * Returns an array of valid keys as discovered in the branch.
+     *
+     * @param Json $json The Json to compare with.
+     * @param Reports $reports Reports to add to.
+     * @return array
+     */
+    public function compare(Json $json, Reports $reports): array
+    {
+        $keys = [];
+
+        /** @var Structure $structure */
+        foreach ($this->getStructures() as $structure) {
+
+            // Skip if the key is null when it shouldn't be.
+
+            if ($structure->getKey() === null && !$structure->getOptions()->branches()) {
+
+                continue;
+            }
+
+            // If it's a branch, do that.
+
+            if ($structure->getOptions()->branches()) {
+                
+                if ($structure->getBranch()->test($json)) {
+
+                    $reports->addReport(Report::info('Successfully branched to %s', Report::key($structure->getBranch()->getLabel())));
+
+                    $keys = array_merge($keys, $structure->getBranch()->compare($json, $reports));
+                }
+            } else {
+
+                $keys[] = $structure->getKey();
+
+                // Otherwise just compare as a regular structure.
+        
+                if (!$json->hasField($structure->getKey())) {
+
+                    // If the branch's structure didn't exist when it needed to, throw error.
+
+                    if ($structure->getOptions()->isRequired()) {
+
+                        $reports->addReport(Report::fatal('Missing required key %s for branch %s', Report::key($structure->getKey()), Report::key($this->getLabel())));
+                    }
+
+                    continue;
+                }
+
+                $field = $json->getField($structure->getKey());
+
+                $structure->compare($field, $reports->createChildReport($field, $structure->getKey()));
+            }
+        }
+
+        return $keys;
     }
 }

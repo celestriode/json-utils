@@ -1,6 +1,7 @@
 <?php namespace Celestriode\JsonUtils\Structure;
 
 use Celestriode\JsonUtils\Json;
+use Ramsey\Uuid\UuidInterface;
 
 class OptionsBuilder
 {
@@ -66,10 +67,10 @@ class OptionsBuilder
     /**
      * Marks the structure as a placeholder for an ancestor.
      *
-     * @param string $ancestor
+     * @param UuidInterface $ancestor
      * @return string
      */
-    public static function ancestor(string $ancestor = null, bool $usesAncestor = true): string
+    public static function ancestor(UuidInterface $ancestor = null, bool $usesAncestor = true): string
     {
         self::$usesAncestor = $usesAncestor;
         self::$ancestor = $ancestor;

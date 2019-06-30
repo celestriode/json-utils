@@ -2,6 +2,7 @@
 
 use Celestriode\JsonUtils\IPredicate;
 use Celestriode\JsonUtils\TMultiSingleton;
+use Celestriode\JsonUtils\Structure\Report;
 
 abstract class Predicate implements IPredicate
 {
@@ -12,19 +13,8 @@ abstract class Predicate implements IPredicate
      *
      * @return string
      */
-    public function getError(): string
+    public function getReport(): Report
     {
-        return 'Predicate failed';
-    }
-
-    /**
-     * Turns an array of strings into code-encompassed, comma-separated strings.
-     *
-     * @param string ...$values The values to condense.
-     * @return string
-     */
-    protected function normalizeValues(string ...$values): string
-    {
-        return '<code>' . implode('</code>, <code>', $values) . '</code>';
+        return Report::warning('Predicate failed');
     }
 }

@@ -1,6 +1,7 @@
 <?php namespace Celestriode\JsonUtils;
 
 use Celestriode\JsonUtils\Json;
+use Celestriode\JsonUtils\Structure\Report;
 
 interface IPredicate
 {
@@ -25,5 +26,5 @@ interface IPredicate
      *
      * @return string
      */
-    public function getError(): string;
+    public function getReport(): Report;
 }

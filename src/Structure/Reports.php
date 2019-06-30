@@ -1,6 +1,7 @@
 <?php namespace Celestriode\JsonUtils\Structure;
 
 use Celestriode\JsonUtils\Json;
+use Celestriode\JsonUtils\Exception\WrongType;
 
 class Reports
 {
@@ -91,36 +92,31 @@ class Reports
     }
 
     /**
-     * Adds non-error information to the report.
+     * Adds a report to the various list of reports.
      *
-     * @param string $info
+     * @param Report $report The report to add.
      * @return void
      */
-    public function addInfo(string $info): void
+    public function addReport(Report $report): void
     {
-        $this->info[] = $info;
-    }
+        switch ($report->getType()) {
 
-    /**
-     * Adds a non-fatal warning to the report.
-     *
-     * @param string $warning
-     * @return void
-     */
-    public function addWarning(string $warning): void
-    {
-        $this->warnings[] = $warning;
-    }
+            case Report::TYPE_INFO:
+                $this->info[] = $report;
+                break;
+            case Report::TYPE_WARNING:
+                $this->warnings[] = $report;
+                break;
+            case Report::TYPE_FATAL:
+                $this->fatals[] = $report;
+                break;
+            default:
+                throw new WrongType('Invalid report type "' . $report->getType() . '"');
+        }
 
-    /**
-     * Adds a fatal warning to the report.
-     *
-     * @param string $fatal
-     * @return void
-     */
-    public function addFatal(string $fatal): void
-    {
-        $this->fatals[] = $fatal;
+        // Set the Json of the stored report.
+
+        $report->setJson($this->getJson());
     }
 
     /**

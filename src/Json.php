@@ -481,7 +481,7 @@ class Json
 
         if ($this->getKey() !== null) {
 
-            $buffer .= json_encode($this->getKey(), JSON_UNESCAPED_SLASHES) . ':';
+            $buffer .= json_encode($this->getKey(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . ':';
         }
 
         $buffer .= $this->toString($prettify);
@@ -508,7 +508,7 @@ class Json
 
         if ($this->isType(self::SCALAR | self::ARRAY | self::OBJECT | self::NULL)) {
 
-            return json_encode($this->getValue(), ($prettify ? JSON_PRETTY_PRINT : 0) | JSON_UNESCAPED_SLASHES);
+            return json_encode($this->getValue(), ($prettify ? JSON_PRETTY_PRINT : 0) | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         }
 
         // Unknown datatype, throw error.

@@ -2,6 +2,7 @@
 
 use Celestriode\JsonUtils\Json;
 use Celestriode\JsonUtils\JsonUtils;
+use Celestriode\JsonUtils\Structure\Report;
 
 class DataType extends Predicate
 {
@@ -31,13 +32,13 @@ class DataType extends Predicate
      *
      * @return string
      */
-    public function getError(): string
+    public function getReport(): Report
     {
         if ($this->json === null) {
 
-            return 'Datatype of input must be "' . implode(', ', JsonUtils::normalizeTypeInteger($this->datatype)) . '"';
+            return Report::warning('Datatype of input must be %s', Report::value(...JsonUtils::normalizeTypeInteger($this->datatype)));
         }
 
-        return 'Datatype of input must be "' . implode(', ', JsonUtils::normalizeTypeInteger($this->datatype)) . '" instead of "' . implode(', ', JsonUtils::normalizeTypeInteger($this->json->getType())) . '"';
+        return Report::warning('Datatype of input me be %s instead of %s', Report::value(...JsonUtils::normalizeTypeInteger($this->datatype)), Report::value(...JsonUtils::normalizeTypeInteger($this->json->getType())));
     }
 }

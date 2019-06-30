@@ -1,6 +1,7 @@
 <?php namespace Celestriode\JsonUtils\Predicates;
 
 use Celestriode\JsonUtils\Json;
+use Celestriode\JsonUtils\Structure\Report;
 
 class SiblingHasValue extends HasValue
 {
@@ -39,8 +40,8 @@ class SiblingHasValue extends HasValue
      *
      * @return string
      */
-    public function getError(): string
+    public function getReport(): Report
     {
-        return 'Sibling "' . $this->sibling . '" can only have one of the following values: ' . $this->normalizeValues(...$this->values);
+        return Report::warning('Sibling %s can only have one of the following values: %s', Report::key($this->sibling), Report::value(...$this->values));
     }
 }

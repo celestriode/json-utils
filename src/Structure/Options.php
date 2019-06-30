@@ -1,6 +1,7 @@
 <?php namespace Celestriode\JsonUtils\Structure;
 
 use Celestriode\JsonUtils\Json;
+use Ramsey\Uuid\UuidInterface;
 
 class Options
 {
@@ -9,6 +10,7 @@ class Options
     protected $placeholder = false;
     protected $branches = false;
     protected $usesAncestor = false;
+    protected $skip = false;
     protected $ancestor;
 
     /**
@@ -86,13 +88,13 @@ class Options
     }
 
     /**
-     * Sets the ancestor key for the structure.
+     * Sets the ancestor UUID for the structure.
      *
-     * @param string $ancestor The key of the ancestor to locate.
+     * @param UuidInterface $ancestor The UUID of the ancestor to locate.
      * @param boolean $uses Whether or not it actually uses an ancestor.
      * @return void
      */
-    public function setAncestor(string $ancestor = null, bool $uses = true): void
+    public function setAncestor(UuidInterface $ancestor = null, bool $uses = true): void
     {
         $this->ancestor = $ancestor;
         $this->usesAncestor = $uses;
@@ -109,11 +111,11 @@ class Options
     }
 
     /**
-     * Returns the key of the ancestor, if existent.
+     * Returns the UUID of the ancestor, if existent.
      *
-     * @return string|null
+     * @return UuidInterface|null
      */
-    public function getAncestor(): ?string
+    public function getAncestor(): ?UuidInterface
     {
         return $this->ancestor;
     }
@@ -138,5 +140,31 @@ class Options
     public function isExpectedType(int $type): bool
     {
         return ($this->getExpectedType() & $type) !== 0;
+    }
+
+    /**
+     * Whether or not the structure should be skipped after performing
+     * audits. This should primarily be set to true while within an
+     * audit that should prevent the structure from being evaluated.
+     *
+     * @param boolean $skip True if the structure should be skipped after auditing.
+     * @return void
+     */
+    public function setSkip(bool $skip): void
+    {
+        $this->skip = $skip;
+    }
+
+    /**
+     * Returns whether or not the whole structure should be skipped
+     * after auditing.
+     * 
+     * Audits in particular should be what sets the structure to skip.
+     *
+     * @return boolean
+     */
+    public function skip(): bool
+    {
+        return $this->skip;
     }
 }

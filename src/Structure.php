@@ -4,6 +4,8 @@ use Celestriode\JsonUtils\Structure\Options;
 use Celestriode\JsonUtils\Structure\OptionsBuilder;
 use Celestriode\JsonUtils\Structure\Reports;
 use Celestriode\JsonUtils\Structure\Branch;
+use Celestriode\JsonUtils\Structure\Report;
+use Ramsey\Uuid\UuidInterface;
 
 class Structure
 {
@@ -14,6 +16,8 @@ class Structure
 
     protected $audits = [];
     protected $branch;
+    protected $requiredBranchCount = [null, null];
+    protected $uuid;
 
     protected $parent;
 
@@ -68,6 +72,31 @@ class Structure
     public function getOptions(): Options
     {
         return $this->options;
+    }
+
+    /**
+     * States that the branch must have between X and Y number of children
+     * that successfully branch.
+     *
+     * @param integer $min The minimum number of times the structure can branch.
+     * @param integer $max The maximum number of times the structure can branch.
+     * @return self
+     */
+    public function setMustBranch(int $min = 1, int $max = null): self
+    {
+        $this->requiredBranchCount = [$min, $max];
+
+        return $this;
+    }
+
+    /**
+     * Get the min/max number of times the structure may branch.
+     *
+     * @return array
+     */
+    public function getRequiredBranches(): array
+    {
+        return $this->requiredBranchCount;
     }
 
     /**
@@ -234,7 +263,7 @@ class Structure
     public function setBranch(Branch $branch): self
     {
         $this->branch = $branch;
-        $branch->getStructure()->setParent($this);
+        $branch->setParentOfStructures($this);
 
         return $this;
     }
@@ -289,13 +318,47 @@ class Structure
      */
     protected function checkStructure(Json $json, Reports $reports): void
     {
+        // Cycle through all audits. These come first in order to let them manipulate other checks.
+
+        foreach ($this->getAudits() as $audit) {
+
+            $succeeds = true;
+
+            // Cycle through the audit's predicates, if available.
+
+            for ($i = 0, $j = count($audit['predicates']); $i < $j; $i++) {
+
+                // If the predicate fails, say so and stop the loop.
+
+                if (!$audit['predicates'][$i]->test($json)) {
+
+                    $succeeds = false;
+                    break;
+                }
+            }
+
+            // If every single predicate succeeded, perform the audit.
+            
+            if ($succeeds) {
+
+                $audit['audit']->audit($this, $json, $reports);
+            }
+        }
+
+        // Ignore this structure if it's been marked as such by an audit.
+
+        if ($this->getOptions()->skip()) {
+
+            return;
+        }
+
         // Check if it uses an ancestor.
 
         if ($this->getOptions()->usesAncestor()) {
 
             $ancestor = clone $this->findAncestor($this->getOptions()->getAncestor());
 
-            // Set the ancestor's key to the current structure's key to prevent "invalid key" issue.
+            // Set the ancestor's key to the current structure's key to prevent "invalid key" issue. If there wasn't an ancestor an error is already thrown.
 
             $ancestor->setKey($this->getKey());
 
@@ -305,11 +368,11 @@ class Structure
             return;
         }
 
-        // Verify keys. This should never actually happen.
+        // Verify keys.
 
-        if ($this->getKey() !== $json->getKey()) {
+        if ($this->getKey() !== $json->getKey() && ($json->getParent() === null || ($json->getParent() !== null && !$json->getParent()->isType(Json::ARRAY)))) {
 
-            $reports->addFatal('Key "' . htmlentities($json->getKey()) . '" does not match expected key "' . htmlentities($this->getKey()) . '"');
+            $reports->addReport(Report::fatal('Key %s does not match expected key %s', Report::key($json->getKey()), Report::key($this->getKey())));
         }
 
         // Verify datatype.
@@ -319,12 +382,23 @@ class Structure
             $needs = implode(', ', JsonUtils::normalizeTypeInteger($this->getOptions()->getExpectedType()));
             $has = implode(', ', JsonUtils::normalizeTypeInteger($json->getType()));
 
-            if ($this->getKey() !== null) {
+            if ($json->getKey() !== null) {
 
-                $reports->addFatal('Incorrect datatype for field "' . htmlentities($this->getKey()) . '" with value <code>' . htmlentities($json->toString()) . '</code> (expected "' . htmlentities($needs) . '", was "' . htmlentities($has) . '")');
+                $reports->addReport(Report::fatal(
+                    'Incorrect datatype for field %s with value %s (expected %s, was %s)',
+                    Report::key($json->getKey()),
+                    Report::value($json->toString()),
+                    Report::value($needs),
+                    Report::value($has)
+                ));
             } else {
 
-                $reports->addFatal('Incorrect datatype for value <code>' . htmlentities($json->tojsonString()) . '</code> (expected "' . htmlentities($needs) . '", was "' . htmlentities($has) . '")');
+                $reports->addReport(Report::fatal(
+                    'Incorrect datatype for value %s (expected %s, was %s)',
+                    Report::value($json->toString()),
+                    Report::value($needs),
+                    Report::value($has)
+                ));
             }
         }
 
@@ -335,6 +409,7 @@ class Structure
             // Validate each of its children.
 
             $validKeys = [];
+            $branchCount = 0;
 
             foreach ($this->getChildren() as $child) {
 
@@ -346,32 +421,15 @@ class Structure
 
                         $branch = $child->getBranch();
 
-                        // If the branch's structure doesn't have a key, the structure is simply invalid.
-
-                        if ($branch->getStructure()->getKey() === null) {
-
-                            throw new Exception\BadStructure('A branch\'s structure cannot have a null key');
-                        }
-
                         // If the predicates succeed, validate the structure.
 
                         if ($branch->test($json)) {
 
-                            // If the branch's structure didn't exist, throw error.
-    
-                            if (!$json->hasField($branch->getStructure()->getKey())) {
-    
-                                $reports->addFatal('Missing required key "' . htmlentities($branch->getStructure()->getKey()) . '" for branch "' . htmlentities($branch->getLabel()) . '"');
-    
-                                continue;
-                            }
+                            // Cycle through all the structures in the branch.
 
-                            $field = $json->getField($branch->getStructure()->getKey());
-
-                            $reports->addInfo('Successfully branched to "' . htmlentities($branch->getLabel()) . '"');
-                            $validKeys[] = $branch->getStructure()->getKey();
-
-                            $branch->getStructure()->compare($field, $reports->createChildReport($field, $branch->getStructure()->getKey()));
+                            $reports->addReport(Report::info('Successfully branched to %s', Report::key($branch->getLabel())));
+                            $branchCount++;
+                            $validKeys = array_merge($validKeys, $branch->compare($json, $reports));
                         }
                         
                         continue;
@@ -418,12 +476,23 @@ class Structure
 
                     if ($child->getOptions()->isRequired()) {
 
-                        $reports->addFatal('Missing required field "' . htmlentities($child->getKey()) . '"');
+                        $reports->addReport(Report::fatal('Missing required field %s', Report::key($child->getKey())));
                     }
                 } catch (Exception\JsonException $e) {
 
-                    $reports->addFatal($e->getMessage());
+                    $reports->addReport(Report::fatal($e->getMessage())); // TODO: rebuild exceptions to allow args.
                 }
+            }
+
+            // Check to ensure it branched the required number of times.
+
+            $requiredBranchCount = $this->getRequiredBranches();
+
+            if (($requiredBranchCount[0] !== null && $branchCount < $requiredBranchCount[0]) || ($requiredBranchCount[1] !== null && $branchCount > $requiredBranchCount[1])) {
+
+                $reports->addReport(Report::warning('Structure branched %s time(s), must have branched %s', (string)$branchCount,
+                (($requiredBranchCount[1] === null) ? 'at least ' . $requiredBranchCount[0] . ' time(s)' : 'between ' . $requiredBranchCount[0] . ' and ' . $requiredBranchCount[1] . ' times.'))
+                );
             }
 
             // And check for invalid keys.
@@ -432,7 +501,7 @@ class Structure
 
             for ($i = 0, $j = count($invalidKeys); $i < $j; $i++) {
 
-                $reports->addWarning('Unexpected key "' . htmlentities($invalidKeys[$i]) . '"; check for typos!');
+                $reports->addReport(Report::warning('Unexpected key %s; check for typos!', Report::key($invalidKeys[$i])));
             }
         }
 
@@ -486,57 +555,64 @@ class Structure
 
             for ($i = 0, $j = count($failures); $i < $j; $i++) {
 
-                $reports->addWarning('Element with the following value was not expected: <code>' . htmlentities($failures[$i]->toJsonString()) . '</code>');
-            }
-        }
-
-        // Cycle through all audits.
-
-        foreach ($this->getAudits() as $audit) {
-
-            $succeeds = true;
-
-            // Cycle through the audit's predicates, if available.
-
-            for ($i = 0, $j = count($audit['predicates']); $i < $j; $i++) {
-
-                // If the predicate fails, say so and stop the loop.
-
-                if (!$audit['predicates'][$i]->test($json)) {
-
-                    $succeeds = false;
-                    break;
-                }
-            }
-
-            // If every single predicate succeeded, perform the audit.
-            
-            if ($succeeds) {
-
-                $audit['audit']->audit($this, $json, $reports);
+                $reports->addReport(Report::warning('Element with the following value was not accepted: %s', Report::value($failures[$i]->toJsonString())));
             }
         }
     }
 
     /**
-     * Finds a parent with the key name of the specified ancestor.
+     * Finds a parent with the UUID of the specified ancestor.
      * 
      * If none are found, throws error instead.
      * 
      * If the parent hosts a branch, skip that parent and go to its parent instead,
      * as branching structure hosts are essentially just a middle-man.
      *
-     * @param string $ancestor The key of the ancestor to locate.
+     * @param UuidInterface $ancestor The UUID of the ancestor to locate.
      * @return self
      */
-    public function findAncestor(string $ancestor = null): self
+    public function findAncestor(UuidInterface $ancestor): self
     {
+        // If there's no parent, we've gone as far as we could and failed to find the ancestor.
+
         if ($this->getParent() === null) {
 
             throw new Exception\BadStructure('Could not locate ancestor "' . $ancestor . '"');
         }
 
-        return !$this->getParent()->getOptions()->branches() && $this->getParent()->getKey() === $ancestor ? $this->getParent() : $this->getParent()->findAncestor($ancestor);
+        // If the parent branches, or doesn't have the UUID, or the UUID doesn't match, continue on to its parent.
+
+        if ($this->getParent()->getOptions()->branches() || $this->getParent()->getUuid() === null || !$ancestor->equals($this->getParent()->getUuid())) {
+
+            return $this->getParent()->findAncestor($ancestor);
+        }
+
+        // Otherwise it matched, return the parent.
+
+        return $this->getParent();
+    }
+
+    /**
+     * Sets the UUID of the structure, used with ascending.
+     *
+     * @param UuidInterface $uuid The UUID of the structure.
+     * @return void
+     */
+    public function setUuid(UuidInterface $uuid = null): self
+    {
+        $this->uuid = $uuid;
+
+        return $this;
+    }
+
+    /**
+     * Returns the UUID of the structure, if it has one.
+     *
+     * @return UuidInterface|null
+     */
+    public function getUuid(): ?UuidInterface
+    {
+        return $this->uuid;
     }
 
     /**
@@ -732,7 +808,7 @@ class Structure
      * @param string $ancestor The key of the ancestor to locate, used as the value of $key.
      * @return self
      */
-    public static function ascend(string $key = null, bool $required = true, string $ancestor = null): self
+    public static function ascend(UuidInterface $ancestor, string $key = null, bool $required = true): self
     {
         return new static($key, OptionsBuilder::ancestor($ancestor)::required($required)::build());
     }
@@ -745,10 +821,10 @@ class Structure
      * @param IPredicate ...$predicates The predicates that all must succeed to traverse the branch.
      * @return self
      */
-    public static function branch(string $label, Structure $branch, IPredicate ...$predicates): self
+    public static function branch(string $label, IPredicate $predicate, Structure ...$branches): self
     {
         $structure = new static(null, OptionsBuilder::required()::branches()::build());
-        $structure->setBranch(new Branch($label, $branch, ...$predicates));
+        $structure->setBranch(new Branch($label, $predicate, ...$branches));
 
         return $structure;
     }
