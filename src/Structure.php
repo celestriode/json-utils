@@ -497,11 +497,12 @@ class Structure
 
             // And check for invalid keys.
 
-            $invalidKeys = $json->getInvalidKeys(...array_merge($validKeys, $this->getValidKeys()));
+            $validKeys = array_merge($validKeys, $this->getValidKeys());
+            $invalidKeys = $json->getInvalidKeys(...$validKeys);
 
-            for ($i = 0, $j = count($invalidKeys); $i < $j; $i++) {
+            if (count($invalidKeys) > 0) {
 
-                $reports->addReport(Report::warning('Unexpected key %s; check for typos!', Report::key($invalidKeys[$i])));
+                $reports->addReport(Report::warning('Found unexpected key(s): %s<br><br>Should instead be one of the following keys: %s', Report::key(...$invalidKeys), Report::key(...$validKeys)));
             }
         }
 
