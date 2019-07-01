@@ -218,7 +218,7 @@ class Statistics
      * @param string ...$pathToStat The path to the statistic.
      * @return void
      */
-    function setStat(float $value, string ...$pathToStat): void
+    public function setStat(float $value, string ...$pathToStat): void
     {
         // Set the root as a direct reference to the array.
 

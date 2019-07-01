@@ -640,12 +640,24 @@ class Structure
      * Returns a designated root structure. May specify which datatypes it can be.
      *
      * @param integer $type The datatypes of the root.
-     * @param self ...$children The child structures of the root, if it's an object.
+     * @param self ...$children The child/element structures of the root, if it's an object or array.
      * @return self
      */
     public static function root(int $type = Json::OBJECT, self ...$children): self
     {
-        return new static(null, OptionsBuilder::required()::type($type)::build(), ...$children);
+        $structure = new static(null, OptionsBuilder::required()::type($type)::build());
+
+        if ($structure->getOptions()->isExpectedType(Json::OBJECT)) {
+
+            $structure->addChildren(...$children);
+        }
+
+        if ($structure->getOptions()->isExpectedType(Json::ARRAY)) {
+
+            $structure->addElements(...$children);
+        }
+
+        return $structure;
     }
 
     /**
@@ -742,12 +754,24 @@ class Structure
      * @param string $key The key of the field.
      * @param integer $type The datatype of the structure.
      * @param boolean $required Whether or not the structure is required.
-     * @param self ...$children Any children, provided this mixed structure can be an object.
+     * @param self ...$children Any children/elements, provided this mixed structure can be an object or array.
      * @return self
      */
     public static function mixed(string $key = null, int $type = Json::ANY, bool $required = true, self ...$children): self
     {
-        return new static($key, OptionsBuilder::required($required)::type($type)::build(), ...$children);
+        $structure = new static($key, OptionsBuilder::required($required)::type($type)::build());
+
+        if ($structure->getOptions()->isExpectedType(Json::OBJECT)) {
+
+            $structure->addChildren(...$children);
+        }
+
+        if ($structure->getOptions()->isExpectedType(Json::ARRAY)) {
+
+            $structure->addElements(...$children);
+        }
+
+        return $structure;
     }
 
     /**
@@ -792,7 +816,19 @@ class Structure
      */
     public static function placeholder(int $type, self ...$children): self
     {
-        return new static(null, OptionsBuilder::placeholder()::type($type)::build(), ...$children);
+        $structure = new static(null, OptionsBuilder::placeholder()::type($type)::build());
+
+        if ($structure->getOptions()->isExpectedType(Json::OBJECT)) {
+
+            $structure->addChildren(...$children);
+        }
+
+        if ($structure->getOptions()->isExpectedType(Json::ARRAY)) {
+
+            $structure->addElements(...$children);
+        }
+
+        return $structure;
     }
 
     /**

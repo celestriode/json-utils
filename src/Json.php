@@ -108,7 +108,7 @@ class Json
      * @param mixed $value The decoded JSON value.
      * @return void
      */
-    public function setValue($value): void
+    public function setValue($value = null): void
     {
         $this->value = $value;
         $this->setType(JsonUtils::normalizeTypeString(gettype($value)));
@@ -169,15 +169,19 @@ class Json
     }
 
     /**
-     * Returns whether or not the object has the specified field, regardless
-     * of type.
+     * Returns whether or not the object has the specified field.
      *
      * @param string $key The name of the field to locate.
      * @return boolean
      */
-    public function hasField(string $key): bool
+    public function hasField(string $key, int $type = self::ANY): bool
     {
-        return $this->isType(self::OBJECT) && property_exists($this->getValue(), $key);
+        if ($type === Json::ANY) {
+
+            return $this->isType(self::OBJECT) && property_exists($this->getValue(), $key);
+        }
+
+        return $this->isType(self::OBJECT) && property_exists($this->getValue(), $key) && ($type === Json::ANY || ($type !== Json::ANY && $this->getField($key)->isType($type)));
     }
 
     /**

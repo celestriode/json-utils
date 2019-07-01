@@ -28,7 +28,7 @@ class JsonCollection extends Json implements \Countable
      * @param mixed $value The decoded JSON value.
      * @return void
      */
-    public function setValue($value): void
+    public function setValue($value = null): void
     {
         if (parent::getValue() === null) {
 
