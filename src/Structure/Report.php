@@ -101,7 +101,7 @@ class Report
      *
      * @return Json
      */
-    public function getJson(): Json
+    public function getJson(): ?Json
     {
         return $this->json;
     }

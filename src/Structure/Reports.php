@@ -114,9 +114,12 @@ class Reports
                 throw new WrongType('Invalid report type "' . $report->getType() . '"');
         }
 
-        // Set the Json of the stored report.
+        // Set the Json of the stored report if it wasn't already set.
 
-        $report->setJson($this->getJson());
+        if ($report->getJson() === null) {
+
+            $report->setJson($this->getJson());
+        }
     }
 
     /**

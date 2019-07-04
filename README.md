@@ -45,7 +45,7 @@ After deserializing, the `Celestriode\JsonUtils\Json` object is returned. This h
 | Method | Description |
 | - | - |
 | `$json->getParent(): ?Json` | If this field is a child of an object or array, its parent is returned. |
-| `$json->getKey(): ?string` | If this field has a string, it will be returned. There are cases where no string exists, such as in elements or at the root. |
+| `$json->getKey(): ?string` | If this field has a key, it will be returned. There are cases where no key exists, such as in elements or at the root. |
 | `$json->getValue()` | Returns the raw value of the field. For example, if the field is a string, it will return a string. If the field is an object, it will return `\stdClass`. If the field is an array, it will return `array`. |
 | `$json->getType(): ?int` | Returns the datatype of the field. By default, this value will be determined automatically when using `setValue()`, whether manually calling that method or when providing a value to the constructor.<br><br>See [`Json` datatypes](#json-datatypes) for a list of constants that match the returned value. |
 | `$json->isType(int $type): bool` | Returns whether or not the field matches the specified type.<br><br>See [`Json` datatypes](#json-datatypes) for a list of constants that match the input value. |
@@ -100,7 +100,7 @@ The following is a list of constants provided via the `Celestriode\JsonUtils\Jso
 ```php
 use Celestriode\JsonUtils\Json;
 
-$null = Json::NULL; // NULL fields.
+$null = Json::NULL; // NULL fields
 $bool = Json::BOOLEAN; // Boolean fields
 $int = Json::INTEGER; // Integer fields
 $double = Json::DOUBLE; // Double fields
@@ -164,7 +164,7 @@ $integer = JsonUtils::normalizeTypeString('array'); // result: 16 AKA Json::ARRA
 
 # <a name="Predicates">Predicates</a>
 
-Various features, such as `$json->checkJson()`, make use of predicates to perform a test. All predicates must implement `Celestriode\JsonUtils\IPredicate`, which comes with two required methods: a test to check the [`Json` object](#json), and a method to return a [`Report` object](#reports) with a preset report (where applicable).
+Various features, such as `$json->checkJson()`, make use of predicates to perform a test. All predicates must implement `Celestriode\JsonUtils\IPredicate`, which comes with two required methods: a test to check the [`Json` object](#json), and a method to return a [`Report` object](#report) with a preset report (where applicable).
 
 ```php
 use Celestriode\JsonUtils\IPredicate;
@@ -243,7 +243,7 @@ Anything extending `Celestriode\JsonUtils\Predicates\Predicate` (such as all of 
 
 This should not be used if the predicate needs to store volatile data to, for example, use in the `test()` or `getReport()` methods. In those cases, always create a new class. A general rule of thumb is if you're using `__construct()` in a custom predicate, you should not be using `instance()`.
 
-In the case of packaged predicates, `AlwaysTrue` and `AlwaysFalse` should **always** use `instance`(). The other predicates should not.
+In the case of packaged predicates, `AlwaysTrue` and `AlwaysFalse` should **always** use `instance()`. The other predicates should not.
 
 ```php
 use Celestriode\JsonUtils\Json;
@@ -412,7 +412,7 @@ MATCHES:
 The `Structure::placeholder(int $type, Structure ...$children): Structure` method defines a value where the key can be anything, as long as it matches the expected `$type`. Any fields that do not match the type can still be validated by other defined structures at the same depth. `$children` are added as either child fields or elements depending on if `$type` is an object or array.
 
 ```php
-Structure::root(
+Structure::root(Json::OBJECT,
     Structure::integer('id'),
     Structure::placeholder(Json::STRING)
 );
@@ -437,7 +437,7 @@ MATCHES:
 The `Structure::branch(string $label, IPredicate $predicate, Structure ...$branches): Structure` method defines a structure that will introduce new `$structures` to the tree provided that the `$predicate` succeeds. The `$label` is simply a friendly name to give the branch itself, which can be used in [reports](#reports).
 
 ```php
-$structure = Structure::root(
+$structure = Structure::root(Json::OBJECT,
     Structure::string('id'),
 
     // Branched if the value of "id" is "first"
@@ -480,9 +480,9 @@ use Ramsey\Uuid\Uuid;
 
 $uuid = Uuid::fromString('1533b1f4-e150-4d04-a770-b128b0eadadf');
 
-$structure = Structure::root(
+$structure = Structure::root(Json::OBJECT,
     Structure::string('name'),
-    Structure::array('children', true,
+    Structure::array('children', false,
         Structure::ascend($uuid)
     )
 )->setUuid($uuid);
@@ -684,7 +684,7 @@ use Celestriode\JsonUtils\Structure;
 use Celestriode\JsonUtils\Structure\Audits\HasValue;
 use Celestriode\JsonUtils\Predicates\AlwaysFalse;
 
-$structure = Structure::root(
+$structure = Structure::root(Json::OBJECT,
     Structure::string('test')->addAudit(new HasValue('first', 'second', 'third')),
     Structure::string('blah', false)->addAudit(new HasValue('a', 'b'), AlwaysFalse::instance())
 );
