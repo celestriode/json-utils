@@ -9,6 +9,8 @@ use Ramsey\Uuid\UuidInterface;
 
 class Structure
 {
+    protected static $uuids = [];
+
     protected $key;
     protected $options;
     protected $children = [];
@@ -352,13 +354,15 @@ class Structure
             return;
         }
 
-        // Check if it uses an ancestor.
+        // Check if it uses an ancestor or redirects.
 
-        if ($this->getOptions()->usesAncestor()) {
+        if ($this->getOptions()->redirects() || $this->getOptions()->usesAncestor()) {
 
-            $ancestor = clone $this->findAncestor($this->getOptions()->getAncestor());
+            // Redirecting takes precedence over ascending.
 
-            // Set the ancestor's key to the current structure's key to prevent "invalid key" issue. If there wasn't an ancestor an error is already thrown.
+            $ancestor = $this->getOptions()->redirects() ? clone self::getStructureFromUuid($this->getOptions()->getRedirect()) : clone $this->findAncestor($this->getOptions()->getAncestor());
+
+            // Set the target's key to the current structure's key to prevent "invalid key" issue. If there wasn't a target an error is already thrown.
 
             $ancestor->setKey($this->getKey());
 
@@ -562,6 +566,24 @@ class Structure
     }
 
     /**
+     * Returns a structure that has the supplied UUID.
+     * 
+     * Any structures given a UUID will be available to choose from.
+     *
+     * @param UuidInterface $uuid The UUID of the structure to retrieve.
+     * @return self
+     */
+    public static function getStructureFromUuid(UuidInterface $uuid): self
+    {
+        if (!array_key_exists($uuid->toString(), self::$uuids)) {
+
+            throw new Exception\BadStructure('There was no structure stored with the UUID "' . $uuid->toString() . '"');
+        }
+
+        return self::$uuids[$uuid->toString()];
+    }
+
+    /**
      * Finds a parent with the UUID of the specified ancestor.
      * 
      * If none are found, throws error instead.
@@ -594,7 +616,7 @@ class Structure
     }
 
     /**
-     * Sets the UUID of the structure, used with ascending.
+     * Sets the UUID of the structure, used with redirecting and ascending.
      *
      * @param UuidInterface $uuid The UUID of the structure.
      * @return void
@@ -602,6 +624,23 @@ class Structure
     public function setUuid(UuidInterface $uuid = null): self
     {
         $this->uuid = $uuid;
+
+        if ($uuid === null) {
+
+            // If the supplied UUID was null, that indicates "remove the UUID".
+
+            if (array_key_exists($uuid->toString(), self::$uuids)) {
+
+                unset(self::$uuids[$uuid->toString()]);
+            }
+        } else {
+
+            // If the supplied UUID was not null, that indicates "save the UUID".
+
+            self::$uuids[$uuid->toString()] = $this;
+        }
+
+        // Return the structure.
 
         return $this;
     }
@@ -848,6 +887,23 @@ class Structure
     public static function ascend(UuidInterface $ancestor, string $key = null, bool $required = true): self
     {
         return new static($key, OptionsBuilder::ancestor($ancestor)::required($required)::build());
+    }
+
+    /**
+     * Takes in the UUID of any other structure and redirects to it.
+     * 
+     * All structures given a UUID will be stored and accessible, even
+     * if they aren't part of the same structure. Make sure your UUIDs
+     * are all, of course, unique!
+     *
+     * @param UuidInterface $target The UUID of the target structure to redirect to.
+     * @param string $key The key of the structure that will replicate the structure of the redirect.
+     * @param boolean $required Whether or not the structure is required.
+     * @return self
+     */
+    public static function redirect(UuidInterface $target, string $key = null, bool $required = true): self
+    {
+        return new static($key, OptionsBuilder::redirect($target)::required($required)::build());
     }
 
     /**

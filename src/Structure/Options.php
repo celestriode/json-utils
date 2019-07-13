@@ -12,6 +12,8 @@ class Options
     protected $usesAncestor = false;
     protected $skip = false;
     protected $ancestor;
+    protected $redirect;
+    protected $redirects = false;
 
     /**
      * Sets the expected datatype when matching against Json.
@@ -101,6 +103,19 @@ class Options
     }
 
     /**
+     * Sets the redirect UUID for the structure.
+     *
+     * @param UUidInterface $redirect The UUID of the structure to redirect to.
+     * @param boolean $redirects Whether or not it actually redirects.
+     * @return void
+     */
+    public function setRedirect(UUidInterface $redirect = null, bool $redirects = true): void
+    {
+        $this->redirect = $redirect;
+        $this->redirects = $redirects;
+    }
+
+    /**
      * Returns whether or not this structure makes use of an ancestor.
      *
      * @return boolean
@@ -118,6 +133,26 @@ class Options
     public function getAncestor(): ?UuidInterface
     {
         return $this->ancestor;
+    }
+
+    /**
+     * Returns whether or not this structure will redirect to a different one.
+     *
+     * @return boolean
+     */
+    public function redirects(): bool
+    {
+        return $this->redirects;
+    }
+
+    /**
+     * Returns the UUID of the structure to redirect to.
+     *
+     * @return UuidInterface|null
+     */
+    public function getRedirect(): ?UuidInterface
+    {
+        return $this->redirect;
     }
 
     /**

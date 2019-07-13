@@ -11,6 +11,8 @@ class OptionsBuilder
     public static $branches = false;
     public static $usesAncestor = false;
     public static $ancestor;
+    public static $redirect;
+    public static $redirects = false;
 
     /**
      * Marks the structure as being required.
@@ -66,14 +68,33 @@ class OptionsBuilder
 
     /**
      * Marks the structure as a placeholder for an ancestor.
+     * 
+     * Similar to redirects, except the structure can only be an ancestor.
      *
-     * @param UuidInterface $ancestor
+     * @param UuidInterface $ancestor The UUID of the ancestral structure to redirect to.
      * @return string
      */
     public static function ancestor(UuidInterface $ancestor = null, bool $usesAncestor = true): string
     {
         self::$usesAncestor = $usesAncestor;
         self::$ancestor = $ancestor;
+
+        return __CLASS__;
+    }
+
+    /**
+     * Marks the structure as a placeholder for a different structure.
+     * 
+     * Similar to ancestors, except the structure can also be siblings or children.
+     *
+     * @param UuidInterface $target The UUID of the structure to redirect to.
+     * @param boolean $redirects Sets whether or not it will actually redirect.
+     * @return string
+     */
+    public static function redirect(UuidInterface $target = null, bool $redirects = true): string
+    {
+        self::$redirect = $target;
+        self::$redirects = $redirects;
 
         return __CLASS__;
     }
@@ -95,6 +116,7 @@ class OptionsBuilder
         $options->setPlaceholder(self::$placeholder);
         $options->setBranches(self::$branches);
         $options->setAncestor(self::$ancestor, self::$usesAncestor);
+        $options->setRedirect(self::$redirect, self::$redirects);
 
         self::$type = Json::ANY;
         self::$required = true;
@@ -102,6 +124,8 @@ class OptionsBuilder
         self::$branches = false;
         self::$usesAncestor = false;
         self::$ancestor = null;
+        self::$redirects = false;
+        self::$redirect = null;
 
         return $options;
     }
