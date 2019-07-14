@@ -20,7 +20,12 @@ class JsonUtils
 
         $parsed = $parser->parse($raw, JsonParser::DETECT_KEY_CONFLICTS);
 
-        return new Json(null, $parsed);
+        // https://github.com/Seldaek/jsonlint/blob/master/src/Seld/JsonLint/JsonParser.php
+        // stringInterpolation()
+        // Transforms \u0027 into &#x27; instead of the required '
+        // This screws over everything. Have to use json_decode instead. Still using the parser for linting.
+
+        return new Json(null, json_decode($raw));
     }
 
     /**
