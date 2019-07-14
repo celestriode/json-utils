@@ -1,6 +1,7 @@
 <?php namespace Celestriode\JsonUtils\Structure;
 
 use Celestriode\JsonUtils\Json;
+use Celestriode\JsonUtils\Exception\WrongType;
 
 class Report
 {
@@ -11,15 +12,16 @@ class Report
 
     private $format = '';
     private $args = [];
-    private $json;
+    /** @var IReportContext $context */
+    private $context;
     private $type = self::TYPE_UNKNOWN;
 
-    public function __construct(int $type, string $format, Json $json = null, ?string ...$args)
+    public function __construct(int $type, string $format, IReportContext $context = null, ?string ...$args)
     {
         $this->setType($type);
         $this->setFormat($format);
         $this->setArgs(...$args);
-        $this->setJson($json);
+        $this->setContext($context);
     }
 
     /**
@@ -86,24 +88,56 @@ class Report
     }
 
     /**
-     * Sets the Json data that this report concerns.
+     * Sets the context of the report.
+     *
+     * @param IReportContext $context The context of the report.
+     * @return void
+     */
+    public function setContext(IReportContext $context = null): void
+    {
+        $this->context = $context;
+    }
+
+    /**
+     * Returns the context of the report. This will typically be the data the report concerns
+     * and can be used for display.
+     *
+     * @return IReportContext|null
+     */
+    public function getContext(): ?IReportContext
+    {
+        return $this->context;
+    }
+
+    /**
+     * Sets the context of the report as Json.
      *
      * @param Json $json The Json.
      * @return void
      */
     public function setJson(Json $json = null): void
     {
-        $this->json = $json;
+        if ($json !== null && !($json instanceof IReportContext)) {
+
+            throw new WrongType('Json must be report context');
+        }
+
+        $this->context = $json;
     }
 
     /**
-     * Returns the Json data that this report concerns.
+     * Returns the context as Json.
      *
      * @return Json
      */
     public function getJson(): ?Json
     {
-        return $this->json;
+        if ($this->context !== null && !($this->context instanceof Json)) {
+
+            throw new WrongType('Context must be Json');
+        }
+
+        return $this->context;
     }
 
     /**
@@ -120,7 +154,6 @@ class Report
      * Creates an info-type report.
      *
      * @param string $format The message format.
-     * @param Json $json The Json.
      * @param string ...$args Any arguments to use in the format.
      * @return self
      */
@@ -133,7 +166,6 @@ class Report
      * Creates a warning-type report.
      *
      * @param string $format The message format.
-     * @param Json $json The Json.
      * @param string ...$args Any arguments to use in the format.
      * @return self
      */
@@ -146,7 +178,6 @@ class Report
      * Creates a fatal-type report.
      *
      * @param string $format The message format.
-     * @param Json $json The Json.
      * @param string ...$args Any arguments to use in the format.
      * @return self
      */
@@ -160,7 +191,6 @@ class Report
      *
      * @param integer $type The severity of the report.
      * @param string $format The message format.
-     * @param Json $json The Json.
      * @param string ...$args Any arguments to use in the format.
      * @return void
      */

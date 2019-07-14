@@ -1,160 +1,18 @@
 <?php namespace Celestriode\JsonUtils\Structure;
 
-use Celestriode\JsonUtils\JsonUtils;
-use Celestriode\JsonUtils\Json;
-
 class Statistics
 {
-    protected $statistics = [
-        'keys' => [],
-        'datatypes' => [],
-        'elements' => [
-            'total' => 0
-        ],
-        'fields' => [
-            'total' => 0
-        ],
-        'root' => [
-            'datatypes' => [],
-            'children' => 0
-        ]
-    ];
+    public $statistics = [];
 
     /**
-     * Adds values from Json into the statistics array.
+     * Changes the raw statistics in their entirety.
      *
-     * @param Json $json The Json to base statistics off of.
+     * @param array $statistics The statistics to overwrite with.
      * @return void
      */
-    public function addJsonToStats(Json $json): void
+    public function setRawStatistics(array $statistics): void
     {
-        // If the Json has no parent, assume it's the root.
-
-        if ($json->getParent() === null) {
-
-            $this->incrementRoot($json);
-            return;
-        }
-
-        // Key name & value counts.
-
-        $this->incrementKeyValue($json);
-
-        // Element counts.
-
-        $this->incrementElementCounts($json);
-
-        // Child counts.
-
-        $this->incrementChildCounts($json);
-
-        // Datatype counts.
-
-        $this->incrementDatatypes($json->getType());
-    }
-
-    /**
-     * Increments root-based data, including datatype and number of
-     * children, if applicable.
-     *
-     * @param Json $json The Json to base statistics off of.
-     * @return void
-     */
-    protected function incrementRoot(Json $json): void
-    {
-        $typeName = implode('/', JsonUtils::normalizeTypeInteger($json->getType()));
-
-        $this->addStat(1, 'root', 'datatypes', $typeName);
-
-        if ($json->isType(Json::ARRAY)) {
-
-            $this->statistics['root']['children'] = $json->getElements()->count();
-        }
-
-        if ($json->isType(Json::OBJECT)) {
-
-            $this->statistics['root']['children'] = $json->getFields()->count();
-        }
-    }
-
-    /**
-     * Increments total key count and relevant values if applicable.
-     *
-     * @param Json $json The Json to base statistics off of.
-     * @return void
-     */
-    protected function incrementKeyValue(Json $json): void
-    {
-        $key = json_encode($json->getKey(), JSON_UNESCAPED_SLASHES);
-
-        if ($json->isType(Json::SCALAR)) {
-
-            // If scalar, store total and the actual value.
-
-            $this->addStat(1, 'keys', $key, 'scalar', 'total');
-            $this->addStat(1, 'keys', $key, 'scalar', 'values', $json->toString());
-        } else if ($json->isType(Json::OBJECT)) {
-
-            // If object, store total.
-
-            $this->addStat(1, 'keys', $key, 'object', 'total');
-        } else if ($json->isType(Json::ARRAY)) {
-
-            // If array, store total.
-
-            $this->addStat(1, 'keys', $key, 'array', 'total');
-        } else if ($json->isType(Json::NULL)) {
-
-            // If null, store total.
-
-            $this->addStat(1, 'keys', $key, 'null', 'total');
-        } else {
-
-            // If none of the above, unknown datatype.
-
-            $this->addStat(1, 'keys', $key, JsonUtils::UNKNOWN_TYPE, 'total');
-        }
-    }
-
-    /**
-     * Add 1 to "datatypes.<type>"
-     *
-     * @param integer $type The datatype of the Json.
-     * @return void
-     */
-    protected function incrementDatatypes(int $type): void
-    {
-        $typeName = implode('/', JsonUtils::normalizeTypeInteger($type));
-
-        $this->addStat(1, 'datatypes', $typeName);
-    }
-
-    /**
-     * If the parent is an array, add 1 to "elements.total"
-     *
-     * @param Json $json The Json to base statistics off of.
-     * @return void
-     */
-    protected function incrementElementCounts(Json $json): void
-    {
-        if ($json->getParent() !== null && $json->getParent()->isType(Json::ARRAY)) {
-
-            $this->addStat(1, 'elements', 'total');
-        }
-    }
-
-    /**
-     * If the parent is an object, add 1 to "children.total"
-     *
-     * @param Json $json The Json to base statistics off of.
-     * @return void
-     */
-    protected function incrementChildCounts(Json $json): void
-    {
-        if ($json->getParent() !== null && $json->getParent()->isType(Json::OBJECT)) {
-
-            $this->addStat(1, 'fields', 'total');
-        }
+        $this->statistics = $statistics;
     }
 
     /**

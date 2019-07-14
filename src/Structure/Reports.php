@@ -6,7 +6,7 @@ use Celestriode\JsonUtils\Exception\WrongType;
 class Reports
 {
     private $key;
-    private $json;
+    private $context;
 
     private $info = [];
     private $warnings = [];
@@ -15,7 +15,7 @@ class Reports
     private $children = [];
 
     /**
-     * Stores the expected key and JSON at the current depth.
+     * Stores the expected key and context at the current depth.
      * 
      * Info is for non-breaking issues.
      * 
@@ -23,19 +23,19 @@ class Reports
      * 
      * Fatals are typically for keys.
      *
-     * @param Json $json The relevant key to this report.
-     * @param string $key The relevant Json to this report.
+     * @param IReportContext $context The relevant context to this report.
+     * @param string $key The relevant key to this report.
      */
-    public function __construct(Json $json = null, string $key = null)
+    public function __construct(IReportContext $context = null, string $key = null)
     {
         $this->setKey($key);
-        $this->setJson($json);
+        $this->setContext($context);
     }
 
     /**
-     * Stores the key referring to the incoming Json.
+     * Stores the key referring to the incoming context.
      *
-     * @param string $key The key referring to the Json.
+     * @param string $key The key referring to the context.
      * @return void
      */
     public function setKey(string $key = null): void
@@ -44,7 +44,7 @@ class Reports
     }
 
     /**
-     * Returns the expected key to be found in JSON.
+     * Returns the expected key to be found in context.
      *
      * @return string|null
      */
@@ -54,24 +54,56 @@ class Reports
     }
 
     /**
-     * Sets the Json object that this report is referring directly to.
+     * Sets the context of the report.
      *
-     * @param Json $json The Json at the current depth.
+     * @param IReportContext $context The context of the report.
+     * @return void
+     */
+    public function setContext(IReportContext $context = null): void
+    {
+        $this->context = $context;
+    }
+
+    /**
+     * Returns the context of the report. This will typically be the data the report concerns
+     * and can be used for display.
+     *
+     * @return IReportContext|null
+     */
+    public function getContext(): ?IReportContext
+    {
+        return $this->context;
+    }
+
+    /**
+     * Sets the context of the report as Json.
+     *
+     * @param Json $json The Json.
      * @return void
      */
     public function setJson(Json $json = null): void
     {
-        $this->json = $json;
+        if ($json !== null && !($json instanceof IReportContext)) {
+
+            throw new WrongType('Json must be report context');
+        }
+
+        $this->context = $json;
     }
 
     /**
-     * Returns the JSON stored in the report.
+     * Returns the context as Json.
      *
-     * @return Json|null
+     * @return Json
      */
     public function getJson(): ?Json
     {
-        return $this->json;
+        if ($this->context !== null && !($this->context instanceof Json)) {
+
+            throw new WrongType('Context must be Json');
+        }
+
+        return $this->context;
     }
 
     /**
@@ -114,11 +146,11 @@ class Reports
                 throw new WrongType('Invalid report type "' . $report->getType() . '"');
         }
 
-        // Set the Json of the stored report if it wasn't already set.
+        // Set the context of the stored report if it wasn't already set.
 
-        if ($report->getJson() === null) {
+        if ($report->getContext() === null) {
 
-            $report->setJson($this->getJson());
+            $report->setContext($this->getContext());
         }
     }
 
@@ -403,13 +435,13 @@ class Reports
      * of this report. Ensures that the new child is of whatever the
      * actual reports class is, such as if it's been extended.
      *
-     * @param Json $json The relevant key to this report.
-     * @param string $key The relevant Json to this report.
+     * @param IReportContext $context The relevant context to this report.
+     * @param string $key The relevant key to this report.
      * @return self
      */
-    public function createChildReport(Json $json, string $key = null): self
+    public function createChildReport(IReportContext $context, string $key = null): self
     {
-        $child = new static($json, $key);
+        $child = new static($context, $key);
 
         $this->addChildReport($child);
 

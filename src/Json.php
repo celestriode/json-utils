@@ -2,8 +2,10 @@
 
 use Celestriode\JsonUtils\Exception\WrongType;
 use Celestriode\JsonUtils\Exception\NotFound;
+use Celestriode\JsonUtils\Structure\IStatisticalReportContext;
+use Celestriode\JsonUtils\Structure\Statistics;
 
-class Json
+class Json implements IStatisticalReportContext
 {
     // TODO: more standard errors.
     private const WRONG_FIELD_TYPE = 'Cannot get field "%s" because it was of type "%s" instead of the expected type "%s"';
@@ -518,5 +520,173 @@ class Json
         // Unknown datatype, throw error.
 
         throw new WrongType('Could not handle value with datatype "' . gettype($this->getValue()) . '"');
+    }
+
+    /**
+     * Adds data to the statistics as determined by the context.
+     *
+     * @param Statistics $statistics The statistics to add to.
+     * @return void
+     */
+    public function addContextToStatistics(Statistics $statistics): void
+    {
+        // Normalize.
+
+        $this->normalizeStatistics($statistics);
+
+        // If the Json has no parent, assume it's the root.
+
+        if ($this->getParent() === null) {
+
+            $this->incrementRoot($statistics);
+            return;
+        }
+
+        // Key name & value counts.
+
+        $this->incrementKeyValue($statistics);
+
+        // Element counts.
+
+        $this->incrementElementCounts($statistics);
+
+        // Child counts.
+
+        $this->incrementChildCounts($statistics);
+
+        // Datatype counts.
+
+        $this->incrementDatatypes($statistics);
+    }
+
+    /**
+     * If stats are empty, set some default values in the context of Json.
+     *
+     * @param Statistics $statistics The statistics to normalize.
+     * @return void
+     */
+    protected function normalizeStatistics(Statistics $statistics): void
+    {
+        if (empty($statistics->getStatistics())) {
+            
+            $statistics->setRawStatistics([
+                'keys' => [],
+                'datatypes' => [],
+                'elements' => [
+                    'total' => 0
+                ],
+                'fields' => [
+                    'total' => 0
+                ],
+                'root' => [
+                    'datatypes' => [],
+                    'children' => 0
+                ]
+            ]);
+        }
+    }
+
+    /**
+     * Increments root-based data, including datatype and number of
+     * children, if applicable.
+     *
+     * @param Statistics $statistics The statistics to add to.
+     * @return void
+     */
+    protected function incrementRoot(Statistics $statistics): void
+    {
+        $typeName = implode('/', JsonUtils::normalizeTypeInteger($this->getType()));
+
+        $statistics->addStat(1, 'root', 'datatypes', $typeName);
+
+        if ($this->isType(Json::ARRAY)) {
+
+            $statistics->statistics['root']['children'] = $this->getElements()->count();
+        }
+
+        if ($this->isType(Json::OBJECT)) {
+
+            $statistics->statistics['root']['children'] = $this->getFields()->count();
+        }
+    }
+
+    /**
+     * Increments total key count and relevant values if applicable.
+     *
+     * @param Statistics $statistics The statistics to add to.
+     * @return void
+     */
+    protected function incrementKeyValue(Statistics $statistics): void
+    {
+        $key = json_encode($this->getKey(), JSON_UNESCAPED_SLASHES);
+
+        if ($this->isType(Json::SCALAR)) {
+
+            // If scalar, store total and the actual value.
+
+            $statistics->addStat(1, 'keys', $key, 'scalar', 'total');
+            $statistics->addStat(1, 'keys', $key, 'scalar', 'values', $this->toString());
+        } else if ($this->isType(Json::OBJECT)) {
+
+            // If object, store total.
+
+            $statistics->addStat(1, 'keys', $key, 'object', 'total');
+        } else if ($this->isType(Json::ARRAY)) {
+
+            // If array, store total.
+
+            $statistics->addStat(1, 'keys', $key, 'array', 'total');
+        } else if ($this->isType(Json::NULL)) {
+
+            // If null, store total.
+
+            $statistics->addStat(1, 'keys', $key, 'null', 'total');
+        } else {
+
+            // If none of the above, unknown datatype.
+
+            $statistics->addStat(1, 'keys', $key, JsonUtils::UNKNOWN_TYPE, 'total');
+        }
+    }
+
+    /**
+     * Add 1 to "datatypes.<type>"
+     *
+     * @param Statistics $statistics The statistics to add to.
+     * @return void
+     */
+    protected function incrementDatatypes(Statistics $statistics): void
+    {
+        $typeName = implode('/', JsonUtils::normalizeTypeInteger($this->getType()));
+
+        $statistics->addStat(1, 'datatypes', $typeName);
+    }
+
+    /**
+     * If the parent is an array, add 1 to "elements.total"
+     *
+     * @param Statistics $statistics The statistics to add to.
+     * @return void
+     */
+    protected function incrementElementCounts(Statistics $statistics): void
+    {
+        if ($this->getParent() !== null && $this->getParent()->isType(Json::ARRAY)) {
+
+            $statistics->addStat(1, 'elements', 'total');
+        }
+    }
+
+    /**
+     * If the parent is an object, add 1 to "children.total"
+     *
+     * @param Statistics $statistics The statistics to add to.
+     * @return void
+     */
+    protected function incrementChildCounts(Statistics $statistics): void
+    {
+        if ($this->getParent() !== null && $this->getParent()->isType(Json::OBJECT)) {
+
+            $statistics->addStat(1, 'fields', 'total');
+        }
     }
 }

@@ -1,14 +1,13 @@
 <?php namespace Celestriode\JsonUtils\Structure;
 
 use Celestriode\JsonUtils\Structure\Reports;
-use Celestriode\JsonUtils\Json;
 
 class StatisticalReports extends Reports
 {
     protected $statistics;
 
     /**
-     * Stores the expected key and JSON at the current depth.
+     * Stores the expected key and context at the current depth.
      * 
      * Info is for non-breaking issues.
      * 
@@ -16,15 +15,15 @@ class StatisticalReports extends Reports
      * 
      * Fatals are typically for keys.
      *
-     * @param Json $json The relevant key to this report.
-     * @param string $key The relevant Json to this report.
+     * @param IReportContext $context The relevant context to this report.
+     * @param string $key The relevant key to this report.
      * @param Statistics $stats The statistics to populate when creating the reports tree.
      */
-    public function __construct(Json $json = null, string $key = null, Statistics $stats = null)
+    public function __construct(IReportContext $context = null, string $key = null, Statistics $stats = null)
     {
         $this->setStatistics($stats ?? new Statistics());
 
-        parent::__construct($json, $key);
+        parent::__construct($context, $key);
     }
 
     /**
@@ -49,18 +48,18 @@ class StatisticalReports extends Reports
     }
 
     /**
-     * Hijacks the setJson method to populate statistics using the incoming Json.
+     * Hijacks the setContext method to populate statistics using the incoming context.
      *
-     * @param Json $json The Json to populate statistics with.
+     * @param IReportContext $context The context to populate statistics with.
      * @return void
      */
-    public function setJson(Json $json = null): void
+    public function setContext(IReportContext $context = null): void
     {
-        parent::setJson($json);
+        parent::setContext($context);
 
-        if ($json !== null) {
+        if ($context !== null && $context instanceof IStatisticalReportContext) {
 
-            $this->getStatistics()->addJsonToStats($json);
+            $context->addContextToStatistics($this->getStatistics());
         }
     }
 
@@ -68,13 +67,13 @@ class StatisticalReports extends Reports
      * Hijacks the createChildReport in order to pass the root Statistics object
      * down through all future children.
      *
-     * @param Json $json The relevant key to this report.
-     * @param string $key The relevant Json to this report.
+     * @param IReportContext $context The relevant context to this report.
+     * @param string $key The relevant key to this report.
      * @return Reports
      */
-    public function createChildReport(Json $json, ?string $key = null): Reports
+    public function createChildReport(IReportContext $context, ?string $key = null): Reports
     {
-        $child = new static($json, $key, $this->getStatistics());
+        $child = new static($context, $key, $this->getStatistics());
 
         $this->addChildReport($child);
 
